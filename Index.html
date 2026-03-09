@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SurtidoraPY</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0d0f;--s1:#141418;--s2:#1a1a20;--s3:#202028;
+  --acc:#f5c518;--acc2:#d4a800;
+  --red:#ff4757;--green:#2ed573;
+  --text:#f0f0f5;--muted:#666680;--border:#2a2a35;
+  --m1:#f5c518;--m2:#4a9eff;--m3:#ff6b35;--m4:#a855f7;
+  --blue:#4a9eff;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Barlow Condensed',sans-serif;
+  min-height:100dvh;display:flex;flex-direction:column;overflow-x:hidden;
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse at 0% 0%,rgba(245,197,24,.07) 0%,transparent 45%),
+    radial-gradient(ellipse at 100% 100%,rgba(74,158,255,.05) 0%,transparent 45%);
+}
+
+/* HEADER */
+header{
+  position:relative;z-index:10;background:var(--s1);border-bottom:1px solid var(--border);
+  padding:14px 18px;display:flex;align-items:center;justify-content:space-between;
+}
+.logo{font-size:22px;font-weight:800;letter-spacing:1px;color:var(--acc);text-transform:uppercase}
+.logo em{color:var(--text);font-style:normal}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.key-pill{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;cursor:pointer}
+.key-pill.ok{background:rgba(46,213,115,.12);border:1px solid rgba(46,213,115,.35);color:var(--green)}
+.key-pill.no{background:rgba(255,71,87,.12);border:1px solid rgba(255,71,87,.35);color:var(--red)}
+.cfg-btn{background:var(--s2);border:1px solid var(--border);color:var(--muted);width:34px;height:34px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px}
+
+/* SETUP */
+#setup-drawer{display:none;position:relative;z-index:9;background:var(--s1);border-bottom:1px solid var(--border);padding:16px 18px}
+#setup-drawer.open{display:block}
+.setup-title{font-size:15px;font-weight:700;margin-bottom:4px;color:var(--acc)}
+.setup-sub{font-size:12px;color:var(--muted);margin-bottom:12px}
+.key-row{display:flex;gap:8px}
+.key-inp{flex:1;background:var(--s2);border:1px solid var(--border);color:var(--text);padding:11px 13px;border-radius:9px;font-family:'IBM Plex Mono',monospace;font-size:11px;outline:none}
+.key-inp:focus{border-color:var(--acc)}
+.key-save{background:var(--acc);color:#000;border:none;padding:11px 16px;border-radius:9px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap}
+
+/* TABS */
+.tabs{position:relative;z-index:9;display:flex;background:var(--s1);border-bottom:1px solid var(--border)}
+.tab{flex:1;padding:12px 8px;text-align:center;font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;color:var(--muted);border:none;background:none;border-bottom:2px solid transparent;transition:all .2s}
+.tab.active{color:var(--acc);border-bottom-color:var(--acc)}
+
+main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 auto;width:100%}
+#cap-section,#hist-section{display:none}
+#cap-section.on,#hist-section.on{display:block}
+
+/* ── STEP 1: MACHINE SELECT ── */
+#step-machine{display:none}
+#step-machine.on{display:block}
+.step-label{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.machine-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mach-card{
+  padding:18px 12px;border-radius:13px;border:1.5px solid var(--border);
+  background:var(--s1);cursor:pointer;text-align:center;transition:all .15s;
+}
+.mach-card:active{transform:scale(.97)}
+.mach-icon{font-size:28px;margin-bottom:6px}
+.mach-name{font-size:17px;font-weight:800}
+.mach-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.mach-card.m1{border-color:var(--m1);background:rgba(245,197,24,.07);color:var(--m1)}
+.mach-card.m2{border-color:var(--m2);background:rgba(74,158,255,.07);color:var(--m2)}
+.mach-card.m3{border-color:var(--m3);background:rgba(255,107,53,.07);color:var(--m3)}
+.mach-card.m4{border-color:var(--m4);background:rgba(168,85,247,.07);color:var(--m4)}
+.mach-card .mach-sub{color:var(--muted)}
+
+/* ── STEP 2: SHOOT ── */
+#step-shoot{display:none}
+#step-shoot.on{display:block}
+
+.shoot-header{
+  background:var(--s1);border:1px solid var(--border);border-radius:14px;
+  padding:16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;
+}
+.shoot-mach-badge{
+  font-size:13px;font-weight:700;padding:6px 12px;border-radius:8px;white-space:nowrap;
+}
+.shoot-mach-badge.m1{background:rgba(245,197,24,.15);color:var(--m1)}
+.shoot-mach-badge.m2{background:rgba(74,158,255,.15);color:var(--m2)}
+.shoot-mach-badge.m3{background:rgba(255,107,53,.15);color:var(--m3)}
+.shoot-mach-badge.m4{background:rgba(168,85,247,.15);color:var(--m4)}
+.shoot-header-info{flex:1}
+.shoot-progress-label{font-size:11px;color:var(--muted);margin-bottom:4px}
+.shoot-progress-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.shoot-progress-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.fill-m1{background:var(--m1)} .fill-m2{background:var(--m2)}
+.fill-m3{background:var(--m3)} .fill-m4{background:var(--m4)}
+
+/* Nozzle thumbnails row */
+.noz-strip{display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px}
+.noz-thumb{
+  flex-shrink:0;width:72px;border-radius:10px;overflow:hidden;
+  border:2px solid var(--border);position:relative;cursor:pointer;
+  transition:border-color .2s;
+}
+.noz-thumb.done{border-color:var(--green)}
+.noz-thumb.active{border-color:var(--acc);box-shadow:0 0 0 2px rgba(245,197,24,.3)}
+.noz-thumb.empty{background:var(--s2);aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.noz-thumb img{width:100%;height:72px;object-fit:cover;display:block}
+.noz-num{
+  position:absolute;bottom:0;left:0;right:0;
+  background:rgba(0,0,0,.7);font-family:'IBM Plex Mono',monospace;
+  font-size:11px;font-weight:700;text-align:center;padding:3px 0;
+}
+.noz-thumb.empty .noz-num{position:static;background:none;color:var(--muted)}
+.noz-empty-icon{font-size:22px;color:var(--muted)}
+.noz-retake-btn{
+  position:absolute;top:3px;right:3px;
+  background:rgba(0,0,0,.75);border:none;color:#fff;
+  width:20px;height:20px;border-radius:5px;font-size:11px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* Big camera button */
+.camera-zone{
+  background:var(--s1);border:2px dashed var(--border);border-radius:16px;
+  padding:32px 20px;text-align:center;cursor:pointer;
+  position:relative;overflow:hidden;transition:all .2s;margin-bottom:12px;
+}
+.camera-zone:hover,.camera-zone.active-pulse{border-color:var(--acc);background:rgba(245,197,24,.04)}
+.camera-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.cam-icon{font-size:52px;display:block;margin-bottom:10px}
+.cam-pico-label{font-size:28px;font-weight:800;margin-bottom:4px}
+.cam-pico-label span{color:var(--acc)}
+.cam-hint{font-size:13px;color:var(--muted)}
+
+.analyze-btn{
+  display:none;width:100%;padding:16px;
+  background:var(--acc);color:#000;border:none;border-radius:12px;
+  font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;
+  cursor:pointer;transition:background .2s;margin-bottom:12px;
+}
+.analyze-btn:hover:not(:disabled){background:var(--acc2)}
+.analyze-btn:disabled{background:var(--s3);color:var(--muted);cursor:not-allowed}
+
+/* ── STEP 3: RESULTS ── */
+#step-results{display:none}
+#step-results.on{display:block}
+
+.results-header{
+  background:var(--s1);border:1px solid var(--border);border-radius:14px;
+  padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;
+}
+.results-title{font-size:18px;font-weight:800}
+.results-sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+.result-cards{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.rcard{
+  background:var(--s1);border:1px solid var(--border);border-radius:13px;
+  overflow:hidden;display:flex;align-items:stretch;
+}
+.rcard-accent{width:4px;flex-shrink:0}
+.rcard-thumb{width:70px;flex-shrink:0;overflow:hidden}
+.rcard-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.rcard-body{flex:1;padding:12px 12px 12px 14px;min-width:0}
+.rcard-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.rcard-pico-badge{
+  font-size:11px;font-weight:700;letter-spacing:1px;
+  padding:3px 8px;border-radius:6px;
+}
+.rcard-status{font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px}
+.rcard-status.ok{background:rgba(46,213,115,.15);color:var(--green)}
+.rcard-status.err{background:rgba(255,71,87,.15);color:var(--red)}
+.rcard-status.analyzing{background:rgba(245,197,24,.15);color:var(--acc)}
+.rcard-display{
+  background:#141a0c;border:1px solid #2a3a18;border-radius:8px;
+  padding:8px 12px;margin-bottom:8px;font-family:'IBM Plex Mono',monospace;
+}
+.rcard-rows{display:flex;gap:12px}
+.rcard-row-item{display:flex;flex-direction:column;gap:2px}
+.rcard-row-lbl{font-size:9px;color:#4a6a28;letter-spacing:1px;text-transform:uppercase}
+.rcard-row-val{font-size:14px;font-weight:700;color:#90d040;letter-spacing:2px}
+.rcard-full{
+  font-family:'IBM Plex Mono',monospace;font-size:20px;
+  font-weight:700;color:#d4ff70;letter-spacing:3px;
+}
+.rcard-retake{
+  background:var(--s2);border:1px solid var(--border);color:var(--muted);
+  padding:6px 12px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;
+  font-weight:700;font-size:13px;cursor:pointer;transition:all .2s;width:100%;margin-top:6px;
+}
+.rcard-retake:hover{border-color:var(--acc);color:var(--acc)}
+.rcard-error-msg{font-size:12px;color:var(--red);margin-bottom:6px}
+
+.save-all-btn{
+  width:100%;padding:16px;background:var(--green);color:#000;border:none;border-radius:12px;
+  font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;
+  cursor:pointer;transition:background .2s;margin-bottom:8px;
+}
+.save-all-btn:hover:not(:disabled){background:#25c066}
+.save-all-btn:disabled{background:var(--s3);color:var(--muted);cursor:not-allowed}
+.new-session-btn{
+  width:100%;padding:13px;background:transparent;color:var(--muted);
+  border:1px solid var(--border);border-radius:12px;
+  font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;cursor:pointer;
+}
+
+/* SPINNER */
+.spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(0,0,0,.25);border-top-color:#000;border-radius:50%;animation:rot .7s linear infinite;margin-right:8px;vertical-align:middle}
+.spin-dark{border-color:rgba(255,255,255,.15);border-top-color:var(--muted)}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+/* HISTORY */
+.hist-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.hist-title{font-size:20px;font-weight:800}
+.clr-btn{font-size:11px;color:var(--red);background:none;border:1px solid rgba(255,71,87,.3);border-radius:7px;padding:5px 10px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:600}
+.export-btn{font-size:11px;color:var(--green);background:none;border:1px solid rgba(46,213,115,.3);border-radius:7px;padding:5px 10px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:600}
+.export-btn:hover{background:rgba(46,213,115,.08)}
+
+/* History filter */
+.hist-filters{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px}
+.hf-btn{
+  flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid var(--border);
+  background:var(--s2);color:var(--muted);font-family:'Barlow Condensed',sans-serif;
+  font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;
+}
+.hf-btn.active{border-color:var(--acc);background:rgba(245,197,24,.1);color:var(--acc)}
+
+#hist-list{display:flex;flex-direction:column;gap:10px}
+.empty-state{text-align:center;color:var(--muted);padding:52px 20px;font-size:15px}
+.empty-state .ei{font-size:44px;margin-bottom:12px}
+
+/* History session group */
+.session-group{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.session-hdr{
+  padding:12px 16px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);cursor:pointer;
+}
+.session-hdr-left{display:flex;align-items:center;gap:10px}
+.session-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px}
+.session-badge.m1{background:rgba(245,197,24,.15);color:var(--m1)}
+.session-badge.m2{background:rgba(74,158,255,.15);color:var(--m2)}
+.session-badge.m3{background:rgba(255,107,53,.15);color:var(--m3)}
+.session-badge.m4{background:rgba(168,85,247,.15);color:var(--m4)}
+.session-date{font-size:11px;color:var(--muted)}
+.session-chevron{color:var(--muted);font-size:14px;transition:transform .2s}
+.session-chevron.open{transform:rotate(180deg)}
+.session-entries{display:none;padding:10px}
+.session-entries.open{display:flex;flex-direction:column;gap:8px}
+
+.hentry{display:flex;align-items:center;gap:10px;padding:10px;background:var(--s2);border-radius:10px;position:relative}
+.hentry-thumb{width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)}
+.hentry-thumb-ph{width:52px;height:52px;border-radius:8px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.hentry-info{flex:1;min-width:0}
+.hentry-pico{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.hentry-num{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;color:#d4ff70;letter-spacing:2px}
+.hentry-actions{display:flex;gap:4px;flex-shrink:0}
+.hentry-edit{background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:13px;padding:4px 8px;border-radius:6px;transition:all .2s;font-family:'Barlow Condensed',sans-serif;font-weight:600}
+.hentry-edit:hover{border-color:var(--acc);color:var(--acc)}
+.hentry-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:4px 7px;border-radius:6px;transition:color .2s}
+.hentry-del:hover{color:var(--red)}
+
+/* Inline edit */
+.inline-edit{display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.inline-edit.open{display:block}
+.ie-row{display:flex;gap:6px;margin-bottom:6px}
+.ie-inp{flex:1;background:var(--s3);border:1px solid var(--border);color:var(--text);padding:9px 10px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;outline:none}
+.ie-inp:focus{border-color:var(--acc)}
+.ie-save{background:var(--acc);color:#000;border:none;padding:9px 14px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;cursor:pointer}
+.ie-preview{font-family:'IBM Plex Mono',monospace;font-size:13px;color:#d4ff70;letter-spacing:2px;padding:6px 10px;background:rgba(212,255,112,.06);border-radius:6px;text-align:center}
+
+/* MODALS */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;align-items:center;justify-content:center;padding:20px}
+.overlay.on{display:flex}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:340px;width:100%}
+.modal h3{font-size:19px;font-weight:800;margin-bottom:8px}
+.modal p{font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5}
+.modal-btns{display:flex;gap:10px}
+.modal-btns button{flex:1;padding:13px;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;cursor:pointer;border:none}
+.mbtn-cancel{background:var(--s3);color:var(--text)}
+.mbtn-confirm{background:var(--red);color:#fff}
+
+/* PIN */
+#pin-modal .modal{max-width:300px}
+.pin-title{font-size:18px;font-weight:800;margin-bottom:4px}
+.pin-sub{font-size:12px;color:var(--muted);margin-bottom:16px}
+.pin-dots{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all .15s}
+.pin-dot.filled{background:var(--acc);border-color:var(--acc)}
+.pin-dot.error{background:var(--red);border-color:var(--red)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pin-key{padding:14px;text-align:center;border-radius:10px;background:var(--s2);border:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;cursor:pointer;transition:all .12s;color:var(--text)}
+.pin-key:active{background:var(--s3);transform:scale(.95)}
+.pin-key.del{font-size:16px;color:var(--muted)}
+.pin-key.empty{background:transparent;border-color:transparent;pointer-events:none}
+.pin-err{text-align:center;color:var(--red);font-size:13px;margin-top:10px;min-height:18px}
+
+/* STATION BANNER */
+#station-banner{
+  position:relative;z-index:9;padding:8px 18px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+}
+#station-banner.villeta{background:rgba(46,213,115,.08)}
+#station-banner.lomapyta{background:rgba(74,158,255,.08)}
+#station-banner.manual{background:rgba(245,197,24,.08)}
+.station-name{font-size:13px;font-weight:800;letter-spacing:.5px}
+.station-name.villeta{color:var(--green)}
+.station-name.lomapyta{color:var(--blue)}
+.station-name.manual{color:var(--acc)}
+.station-gps{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace}
+.station-change{font-size:11px;color:var(--muted);background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:600}
+
+/* STATION SELECT SCREEN */
+#step-station{display:none}
+#step-station.on{display:block}
+.station-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+.station-card{padding:20px 12px;border-radius:13px;border:1.5px solid var(--border);background:var(--s1);cursor:pointer;text-align:center;transition:all .15s}
+.station-card:active{transform:scale(.97)}
+.station-card.villeta{border-color:var(--green);background:rgba(46,213,115,.07);color:var(--green)}
+.station-card.lomapyta{border-color:var(--blue);background:rgba(74,158,255,.07);color:var(--blue)}
+.station-card-icon{font-size:32px;margin-bottom:8px}
+.station-card-name{font-size:18px;font-weight:800}
+.station-card-sub{font-size:12px;color:var(--muted);margin-top:3px}
+
+/* m5/m6 colors */
+.mach-card.m5{border-color:#2ed573;background:rgba(46,213,115,.07);color:#2ed573}
+.mach-card.m6{border-color:#ff6eb4;background:rgba(255,110,180,.07);color:#ff6eb4}
+.shoot-mach-badge.m5{background:rgba(46,213,115,.15);color:#2ed573}
+.shoot-mach-badge.m6{background:rgba(255,110,180,.15);color:#ff6eb4}
+.fill-m5{background:#2ed573} .fill-m6{background:#ff6eb4}
+.hcard-accent.m5{background:#2ed573} .hcard-accent.m6{background:#ff6eb4}
+.hcard-badge.m5{background:rgba(46,213,115,.15);color:#2ed573}
+.hcard-badge.m6{background:rgba(255,110,180,.15);color:#ff6eb4}
+.session-badge.m5{background:rgba(46,213,115,.15);color:#2ed573}
+.session-badge.m6{background:rgba(255,110,180,.15);color:#ff6eb4}
+
+/* TOAST */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);padding:12px 22px;border-radius:30px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;z-index:200;transition:transform .3s ease;white-space:nowrap;max-width:90vw;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.good{background:var(--acc);color:#000}
+.toast.bad{background:var(--red);color:#fff}
+.toast.info{background:var(--s1);color:var(--text);border:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Surtidora<em>PY</em></div>
+  <div class="hdr-right">
+    <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
+    <div class="cfg-btn" onclick="toggleSetup()">⚙️</div>
+  </div>
+</header>
+
+<div id="setup-drawer">
+  <div class="setup-title">🔑 API Key de Anthropic</div>
+  <div class="setup-sub">Se guarda en tu celular. Obtenela gratis en console.anthropic.com</div>
+  <div class="key-row">
+    <input type="password" class="key-inp" id="key-inp" placeholder="sk-ant-api03-..." autocomplete="off" spellcheck="false">
+    <button class="key-save" onclick="saveKey()">Guardar</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="goTab('cap')">📷 Capturar</button>
+  <button class="tab" onclick="goTab('hist')">📋 Historial</button>
+</div>
+
+<!-- STATION BANNER -->
+<div id="station-banner" style="display:none">
+  <div>
+    <div class="station-name" id="station-name">—</div>
+    <div class="station-gps" id="station-gps">Detectando ubicación...</div>
+  </div>
+  <button class="station-change" onclick="showStationSelect()">Cambiar</button>
+</div>
+
+<main>
+  <!-- ══ CAPTURE ══ -->
+  <div id="cap-section" class="on">
+
+    <!-- STEP 0: SELECT STATION (GPS fallback) -->
+    <div id="step-station">
+      <div class="step-label">📍 Seleccioná la estación</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px">No se pudo detectar tu ubicación automáticamente.</div>
+      <div class="station-cards">
+        <div class="station-card villeta" onclick="setStationManual('villeta')">
+          <div class="station-card-icon">⛽</div>
+          <div class="station-card-name">Villeta</div>
+          <div class="station-card-sub">6 máquinas · 17 picos</div>
+        </div>
+        <div class="station-card lomapyta" onclick="setStationManual('lomapyta')">
+          <div class="station-card-icon">⛽</div>
+          <div class="station-card-name">Loma Pytá</div>
+          <div class="station-card-sub">4 máquinas · 17 picos</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 1: SELECT MACHINE -->
+    <div id="step-machine">
+      <div class="step-label">Seleccioná la máquina</div>
+      <div class="machine-grid" id="machine-grid"></div>
+    </div>
+
+    <!-- STEP 2: SHOOT PHOTOS -->
+    <div id="step-shoot">
+      <div class="shoot-header">
+        <div class="shoot-mach-badge" id="shoot-badge">M1</div>
+        <div class="shoot-header-info">
+          <div class="shoot-progress-label" id="shoot-progress-label">Pico 1 de 4</div>
+          <div class="shoot-progress-bar">
+            <div class="shoot-progress-fill fill-m1" id="shoot-progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+        <button onclick="cancelSession()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px">✕</button>
+      </div>
+
+      <!-- Nozzle thumbnails -->
+      <div class="noz-strip" id="noz-strip"></div>
+
+      <!-- Camera -->
+      <div class="camera-zone" id="camera-zone">
+        <input type="file" accept="image/*" capture="environment" id="cam-input" onchange="handleShot(event)">
+        <span class="cam-icon">📷</span>
+        <div class="cam-pico-label">PICO <span id="cam-pico-num">1</span></div>
+        <div class="cam-hint" id="cam-hint">Apuntá al display y tomá la foto</div>
+      </div>
+
+      <button class="analyze-btn" id="analyze-btn" onclick="analyzeAll()">
+        🔍 Analizar todos los picos
+      </button>
+    </div>
+
+    <!-- STEP 3: RESULTS -->
+    <div id="step-results">
+      <div class="results-header">
+        <div>
+          <div class="results-title" id="results-title">Resultados</div>
+          <div class="results-sub" id="results-sub"></div>
+        </div>
+        <div class="shoot-mach-badge" id="results-badge">M1</div>
+      </div>
+
+      <div class="result-cards" id="result-cards"></div>
+
+      <button class="save-all-btn" id="save-all-btn" onclick="saveAll()">💾 Guardar todas las lecturas</button>
+      <button class="new-session-btn" onclick="newSession()">↩ Nueva sesión</button>
+    </div>
+
+  </div>
+
+  <!-- ══ HISTORY ══ -->
+  <div id="hist-section">
+    <div class="hist-hdr">
+      <div class="hist-title">Historial</div>
+      <div style="display:flex;gap:8px">
+        <button class="export-btn" onclick="exportExcel()">📥 Drive</button>
+        <button class="clr-btn" onclick="confirmClear()">🗑 Limpiar</button>
+      </div>
+    </div>
+    <div class="hist-filters" id="hist-filters">
+      <button class="hf-btn active" onclick="filterHist(0)">Todas</button>
+    </div>
+    <div id="hist-list"></div>
+  </div>
+</main>
+
+<!-- Clear modal -->
+<div class="overlay" id="clear-modal">
+  <div class="modal">
+    <h3>¿Borrar historial?</h3>
+    <p>Se eliminarán todas las sesiones guardadas. No se puede deshacer.</p>
+    <div class="modal-btns">
+      <button class="mbtn-cancel" onclick="closeOverlay('clear-modal')">Cancelar</button>
+      <button class="mbtn-confirm" onclick="doClear()">Eliminar todo</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN modal -->
+<div class="overlay" id="pin-modal">
+  <div class="modal">
+    <div class="pin-title">🔐 Administrador</div>
+    <div class="pin-sub">Ingresá el PIN para editar</div>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-pad">
+      <button class="pin-key" onclick="pinKey('1')">1</button>
+      <button class="pin-key" onclick="pinKey('2')">2</button>
+      <button class="pin-key" onclick="pinKey('3')">3</button>
+      <button class="pin-key" onclick="pinKey('4')">4</button>
+      <button class="pin-key" onclick="pinKey('5')">5</button>
+      <button class="pin-key" onclick="pinKey('6')">6</button>
+      <button class="pin-key" onclick="pinKey('7')">7</button>
+      <button class="pin-key" onclick="pinKey('8')">8</button>
+      <button class="pin-key" onclick="pinKey('9')">9</button>
+      <button class="pin-key empty"></button>
+      <button class="pin-key" onclick="pinKey('0')">0</button>
+      <button class="pin-key del" onclick="pinDel()">⌫</button>
+    </div>
+    <div class="pin-err" id="pin-err"></div>
+    <div style="margin-top:14px">
+      <button class="mbtn-cancel" style="width:100%;padding:12px;border-radius:10px;border:none;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;cursor:pointer;background:var(--s3);color:var(--text)" onclick="closeOverlay('pin-modal')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast-el"></div>
+
+<script>
+// ── CONFIG ──
+const ADMIN_PIN = '1234'; // ← Cambiá este PIN
+const GOOG_CLIENT_ID = '1067856364469-al3sppmqkorugqianui7aimm11h2105a.apps.googleusercontent.com';
+const GPS_RADIUS_M = 200; // metros de tolerancia
+
+const STATIONS = {
+  villeta: {
+    name: 'Villeta',
+    lat: -25.49822065455169,
+    lng: -57.479676837959246,
+    folderId: '1kRgeZi8RHWYQxJkIEymvAUONH4Snn7-I',
+    dbKey: 'surtidora_villeta',
+    machines: {
+      1:{nozzles:4,color:'m1'},
+      2:{nozzles:2,color:'m2'},
+      3:{nozzles:4,color:'m3'},
+      4:{nozzles:4,color:'m4'},
+      5:{nozzles:1,color:'m5'},
+      6:{nozzles:2,color:'m6'}
+    }
+  },
+  lomapyta: {
+    name: 'Loma Pytá',
+    lat: -25.2496,
+    lng: -57.5524,
+    folderId: '1MdYPbu_WNPg6Lkn40wyan9iJqv97fSJ5',
+    dbKey: 'surtidora_lomapyta',
+    machines: {
+      1:{nozzles:4,color:'m1'},
+      2:{nozzles:6,color:'m2'},
+      3:{nozzles:6,color:'m3'},
+      4:{nozzles:1,color:'m4'}
+    }
+  }
+};
+
+// ── STATE ──
+let currentStation = null; // 'villeta' | 'lomapyta'
+let DB = [];
+let session = null;
+let histFilter = 0;
+let pinBuf = '', pinTarget = null;
+let setupOpen = false;
+let gToken = null;
+
+// ── INIT ──
+(function(){
+  const k = getKey(); refreshKeyUI(k);
+  if(!k){ document.getElementById('setup-drawer').classList.add('open'); setupOpen=true; }
+  detectStation();
+})();
+
+// ── STATION DETECTION ──
+function detectStation(){
+  const saved = localStorage.getItem('surtidora_station');
+  if(!navigator.geolocation){
+    if(saved){ setStation(saved); } else { showStationSelect(); }
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const {latitude:lat, longitude:lng} = pos.coords;
+      let found = null;
+      for(const [key, st] of Object.entries(STATIONS)){
+        if(distanceM(lat, lng, st.lat, st.lng) <= GPS_RADIUS_M){ found=key; break; }
+      }
+      if(found){
+        setStation(found, `GPS · ${distanceM(lat,lng,STATIONS[found].lat,STATIONS[found].lng).toFixed(0)}m`);
+      } else if(saved){
+        setStation(saved, 'Última usada');
+      } else {
+        showStationSelect();
+      }
+    },
+    err => {
+      if(saved){ setStation(saved, 'Sin GPS — última usada'); }
+      else { showStationSelect(); }
+    },
+    {timeout:6000, maximumAge:60000}
+  );
+}
+
+function distanceM(lat1,lng1,lat2,lng2){
+  const R=6371000, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function setStation(key, gpsLabel=''){
+  currentStation = key;
+  localStorage.setItem('surtidora_station', key);
+  const st = STATIONS[key];
+  DB = JSON.parse(localStorage.getItem(st.dbKey)||'[]');
+
+  // Banner
+  const banner = document.getElementById('station-banner');
+  banner.style.display = 'flex';
+  banner.className = key;
+  document.getElementById('station-name').textContent = '📍 ' + st.name;
+  document.getElementById('station-name').className = 'station-name ' + key;
+  document.getElementById('station-gps').textContent = gpsLabel || st.name;
+
+  // Build machine grid
+  buildMachineGrid();
+  buildHistFilters();
+  showStep('machine');
+}
+
+function buildMachineGrid(){
+  const st = STATIONS[currentStation];
+  const grid = document.getElementById('machine-grid');
+  grid.innerHTML = Object.entries(st.machines).map(([id, m])=>`
+    <div class="mach-card ${m.color}" onclick="startSession(${id})">
+      <div class="mach-icon">⛽</div>
+      <div class="mach-name">Máquina ${id}</div>
+      <div class="mach-sub">${m.nozzles} pico${m.nozzles>1?'s':''}</div>
+    </div>
+  `).join('');
+}
+
+function showStationSelect(){
+  showStep('station');
+  document.getElementById('station-banner').style.display='none';
+}
+
+function setStationManual(key){
+  setStation(key, 'Selección manual');
+}
+
+function buildHistFilters(){
+  const filters = document.getElementById('hist-filters');
+  const machines = getMachines();
+  let html = `<button class="hf-btn active" onclick="filterHist(0)">Todas</button>`;
+  Object.keys(machines).forEach(m=>{
+    html += `<button class="hf-btn" onclick="filterHist(${m})">M${m}</button>`;
+  });
+  filters.innerHTML = html;
+  histFilter = 0;
+}
+
+function getMachines(){ return STATIONS[currentStation]?.machines || {}; }
+
+function getKey(){ return localStorage.getItem('surtidora_key')||''; }
+function refreshKeyUI(k){
+  const p=document.getElementById('key-pill');
+  if(k&&k.startsWith('sk-ant')){ p.textContent='✓ Key activa'; p.className='key-pill ok'; }
+  else{ p.textContent='Sin key'; p.className='key-pill no'; }
+}
+function saveKey(){
+  const v=document.getElementById('key-inp').value.trim();
+  if(!v.startsWith('sk-ant')){ toast('⚠️ Key inválida','bad'); return; }
+  localStorage.setItem('surtidora_key',v); refreshKeyUI(v); closeSetup(); toast('✅ Key guardada','good');
+}
+function toggleSetup(){
+  setupOpen=!setupOpen;
+  document.getElementById('setup-drawer').classList.toggle('open',setupOpen);
+  if(setupOpen&&getKey()) document.getElementById('key-inp').value=getKey();
+}
+function closeSetup(){ setupOpen=false; document.getElementById('setup-drawer').classList.remove('open'); }
+
+// ── TABS ──
+function goTab(t){
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',(i===0&&t==='cap')||(i===1&&t==='hist')));
+  document.getElementById('cap-section').classList.toggle('on',t==='cap');
+  document.getElementById('hist-section').classList.toggle('on',t==='hist');
+  if(t==='hist') renderHist();
+}
+
+// ── SESSION START ──
+function startSession(mach){
+  const machines = getMachines();
+  mach = parseInt(mach);
+  session = {
+    mach,
+    totalNozzles: machines[mach].nozzles,
+    color: machines[mach].color,
+    photos: [],
+    currentNoz: 1
+  };
+  for(let i=0;i<session.totalNozzles;i++) session.photos.push(null);
+  showStep('shoot');
+  updateShootUI();
+}
+
+function cancelSession(){
+  session=null;
+  showStep('machine');
+}
+
+function newSession(){
+  session=null;
+  showStep('machine');
+}
+
+function showStep(step){
+  ['station','machine','shoot','results'].forEach(s=>{
+    const el=document.getElementById('step-'+s);
+    if(el) el.style.display=(step===s)?'block':'none';
+  });
+}
+
+// ── UPDATE SHOOT UI ──
+function updateShootUI(){
+  if(!session) return;
+  const {mach, totalNozzles, color, currentNoz, photos} = session;
+
+  // Badge
+  document.getElementById('shoot-badge').textContent = 'M'+mach;
+  document.getElementById('shoot-badge').className = 'shoot-mach-badge '+color;
+
+  // Progress
+  const done = photos.filter(p=>p!==null).length;
+  document.getElementById('shoot-progress-label').textContent = `Pico ${currentNoz} de ${totalNozzles}`;
+  document.getElementById('shoot-progress-fill').style.width = (done/totalNozzles*100)+'%';
+  document.getElementById('shoot-progress-fill').className = 'shoot-progress-fill fill-'+color;
+
+  // Camera label
+  document.getElementById('cam-pico-num').textContent = currentNoz;
+
+  // Hint
+  if(done === totalNozzles){
+    document.getElementById('cam-hint').textContent = 'Todas las fotos tomadas ✅';
+    document.getElementById('camera-zone').style.opacity='0.4';
+    document.getElementById('camera-zone').style.pointerEvents='none';
+    document.getElementById('analyze-btn').style.display='block';
+  } else {
+    document.getElementById('cam-hint').textContent = 'Apuntá al display y tomá la foto';
+    document.getElementById('camera-zone').style.opacity='1';
+    document.getElementById('camera-zone').style.pointerEvents='';
+    document.getElementById('analyze-btn').style.display='none';
+  }
+
+  // Nozzle strip
+  const strip = document.getElementById('noz-strip');
+  strip.innerHTML = '';
+  for(let i=0;i<totalNozzles;i++){
+    const noz=i+1;
+    const p=photos[i];
+    const isActive = noz===currentNoz;
+    const div=document.createElement('div');
+    div.className='noz-thumb'+(p?' done':'')+(isActive?' active':'');
+    div.id='noz-thumb-'+noz;
+    if(p){
+      div.innerHTML=`
+        <img src="${p.thumb}" alt="">
+        <div class="noz-num">${noz}</div>
+        <button class="noz-retake-btn" onclick="retakeShoot(${noz})" title="Volver a tomar">↺</button>
+      `;
+    } else {
+      div.innerHTML=`
+        <div class="noz-empty-icon">${isActive?'📷':'○'}</div>
+        <div class="noz-num">${noz}</div>
+      `;
+      if(!isActive) div.onclick=()=>jumpToNozzle(noz);
+    }
+    strip.appendChild(div);
+  }
+}
+
+function jumpToNozzle(noz){
+  if(!session) return;
+  session.currentNoz=noz;
+  updateShootUI();
+  // Reset file input
+  document.getElementById('cam-input').value='';
+}
+
+function retakeShoot(noz){
+  if(!session) return;
+  session.photos[noz-1]=null;
+  session.currentNoz=noz;
+  document.getElementById('camera-zone').style.opacity='1';
+  document.getElementById('camera-zone').style.pointerEvents='';
+  document.getElementById('analyze-btn').style.display='none';
+  updateShootUI();
+  document.getElementById('cam-input').value='';
+}
+
+// ── HANDLE PHOTO ──
+function handleShot(e){
+  const f=e.target.files[0]; if(!f||!session) return;
+  const noz=session.currentNoz;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const dataUrl=ev.target.result;
+    session.photos[noz-1]={file:f, thumb:dataUrl, dataUrl};
+    // Auto-advance to next empty nozzle
+    let next=null;
+    for(let i=noz;i<session.totalNozzles;i++){
+      if(!session.photos[i]){ next=i+1; break; }
+    }
+    if(!next){
+      // Check from beginning
+      for(let i=0;i<noz-1;i++){
+        if(!session.photos[i]){ next=i+1; break; }
+      }
+    }
+    if(next) session.currentNoz=next;
+    updateShootUI();
+    document.getElementById('cam-input').value='';
+  };
+  reader.readAsDataURL(f);
+}
+
+// ── ANALYZE ALL — single request per session (cost optimized) ──
+async function analyzeAll(){
+  if(!getKey()){ toast('⚠️ Configurá tu API Key primero','bad'); toggleSetup(); return; }
+  if(!session) return;
+
+  showStep('results');
+  const {mach, totalNozzles, photos} = session;
+  const cls = MACHINES[mach].color;
+
+  // Setup results UI
+  document.getElementById('results-title').textContent = `Máquina ${mach}`;
+  document.getElementById('results-sub').textContent = `${totalNozzles} picos · analizando...`;
+  document.getElementById('results-badge').textContent = 'M'+mach;
+  document.getElementById('results-badge').className = 'shoot-mach-badge '+cls;
+  document.getElementById('save-all-btn').disabled=true;
+
+  // Build initial cards (all analyzing)
+  const cards=document.getElementById('result-cards');
+  cards.innerHTML='';
+  for(let i=0;i<totalNozzles;i++){
+    const p=photos[i];
+    cards.appendChild(buildRCard(i+1, mach, p?.thumb||null, null, 'analyzing'));
+  }
+
+  const results = new Array(totalNozzles).fill(null);
+
+  // Separate photos with and without images
+  const withPhoto=[], noPhoto=[];
+  photos.forEach((p,i)=>{ if(p) withPhoto.push(i); else noPhoto.push(i); });
+
+  // Mark missing photos immediately
+  noPhoto.forEach(i=>{
+    results[i]={error:'Sin foto'};
+    updateRCard(i+1, mach, null, 'error');
+  });
+
+  if(withPhoto.length===0){
+    session.results=results;
+    document.getElementById('results-sub').textContent=`${totalNozzles} picos`;
+    return;
+  }
+
+  // Build single message with ALL photos + one instruction
+  // Max 17 images per request — Claude supports up to 20
+  // Split into batches of 10 if needed (safety margin)
+  const BATCH=10;
+  for(let b=0; b<withPhoto.length; b+=BATCH){
+    const batchIdx=withPhoto.slice(b, b+BATCH);
+
+    // Build content array: interleave image + label for each pico
+    const content=[];
+    content.push({type:'text', text:
+      `Tenés ${batchIdx.length} fotos de displays de surtidora de combustible, una por pico.\n` +
+      `Cada display tiene DOS FILAS que se CONCATENAN: fila SUPERIOR (pequeña) + fila INFERIOR (grande) = número completo.\n` +
+      `Ejemplo: "499" + "598.554" → "499598.554"\n\n` +
+      `Analizá cada imagen en orden y respondé SOLO con un array JSON, sin texto extra:\n` +
+      `[\n` +
+      batchIdx.map((idx,j)=>
+        `  {"pico":${idx+1},"fila_superior":"...","fila_inferior":"...","numero_completo":"..."}`
+      ).join(',\n')+
+      `\n]\n` +
+      `Usá punto para decimales. Si no podés leer una fila, poné null.`
+    });
+
+    batchIdx.forEach((idx,j)=>{
+      const p=photos[idx];
+      const mt=p.file?.type||'image/jpeg';
+      const b64=p.dataUrl.split(',')[1];
+      content.push({type:'text', text:`[Foto Pico ${idx+1}]`});
+      content.push({type:'image', source:{type:'base64', media_type:mt, data:b64}});
+    });
+
+    try{
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key':getKey(),
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens: 150 * batchIdx.length, // ~150 tokens per pico
+          messages:[{role:'user', content}]
+        })
+      });
+
+      if(!res.ok){ const e=await res.json(); throw new Error(e.error?.message||`Error ${res.status}`); }
+      const data=await res.json();
+      const txt=data.content?.map(b=>b.text||'').join('')||'';
+      let parsed;
+      try{ parsed=JSON.parse(txt.replace(/```json|```/g,'').trim()); }
+      catch{ throw new Error('No se pudo interpretar la respuesta'); }
+
+      // Map results back by pico number
+      parsed.forEach(r=>{
+        const i=r.pico-1;
+        if(i>=0 && i<totalNozzles){
+          results[i]=r;
+          updateRCard(r.pico, mach, r, r.numero_completo?'ok':'error');
+        }
+      });
+      // Any in batch not returned → mark error
+      batchIdx.forEach(idx=>{
+        if(!results[idx]){ results[idx]={error:'Sin respuesta'}; updateRCard(idx+1,mach,null,'error'); }
+      });
+
+    }catch(err){
+      batchIdx.forEach(idx=>{
+        results[idx]={error:err.message};
+        updateRCard(idx+1, mach, {error:err.message}, 'error');
+      });
+    }
+  }
+
+  session.results=results;
+  document.getElementById('results-sub').textContent=`${totalNozzles} picos`;
+  const anyOk=results.some(r=>r&&!r.error&&r.numero_completo);
+  document.getElementById('save-all-btn').disabled=!anyOk;
+}
+
+function buildRCard(noz, mach, thumb, result, status){
+  const cls = getMachines()[mach]?.color || 'm1';
+  const div=document.createElement('div');
+  div.className='rcard'; div.id='rcard-'+noz;
+  div.innerHTML=`
+    <div class="rcard-accent" style="background:var(--${cls})"></div>
+    <div class="rcard-thumb">${thumb?`<img src="${thumb}" alt="">`:`<div style="width:70px;height:100%;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:24px">⛽</div>`}</div>
+    <div class="rcard-body" id="rcard-body-${noz}">
+      ${buildRCardBody(noz, mach, result, status)}
+    </div>
+  `;
+  return div;
+}
+
+function buildRCardBody(noz, mach, result, status){
+  const cls=getMachines()[mach]?.color||'m1';
+  const statusLabels={analyzing:'<span class="spin spin-dark"></span>Analizando...',ok:'✅ Leído',error:'⚠️ Error'};
+  let inner=`
+    <div class="rcard-top">
+      <div class="rcard-pico-badge" style="background:rgba(var(--${cls}-rgb),.15);color:var(--${cls});border:1px solid rgba(245,197,24,.2)">PICO ${noz}</div>
+      <div class="rcard-status ${status}">${statusLabels[status]||''}</div>
+    </div>
+  `;
+  if(status==='ok'&&result){
+    inner+=`
+      <div class="rcard-display">
+        <div class="rcard-rows">
+          <div class="rcard-row-item"><div class="rcard-row-lbl">ARRIBA</div><div class="rcard-row-val">${result.fila_superior||'—'}</div></div>
+          <div class="rcard-row-item" style="margin-left:8px"><div class="rcard-row-lbl">ABAJO</div><div class="rcard-row-val">${result.fila_inferior||'—'}</div></div>
+        </div>
+      </div>
+      <div class="rcard-full">${result.numero_completo||'—'}</div>
+    `;
+  } else if(status==='error'){
+    inner+=`<div class="rcard-error-msg">${result?.error||'Error desconocido'}</div>`;
+    inner+=`<button class="rcard-retake" onclick="retakeFromResults(${noz})">↺ Volver a tomar foto</button>`;
+  }
+  return inner;
+}
+
+function updateRCard(noz, mach, result, status){
+  const body=document.getElementById('rcard-body-'+noz);
+  if(body) body.innerHTML=buildRCardBody(noz, mach, result, status);
+}
+
+function retakeFromResults(noz){
+  // Go back to shoot step, set current nozzle
+  session.currentNoz=noz;
+  session.photos[noz-1]=null;
+  showStep('shoot');
+  updateShootUI();
+  document.getElementById('cam-input').value='';
+  toast(`Tomá de nuevo la foto del Pico ${noz}`,'info');
+}
+
+// ── SAVE ALL ──
+function saveAll(){
+  if(!session||!session.results) return;
+  const {mach, totalNozzles, photos, results} = session;
+  const sessionId=Date.now();
+  const entries=[];
+  for(let i=0;i<totalNozzles;i++){
+    const r=results[i];
+    if(r&&!r.error&&r.numero_completo){
+      entries.push({
+        id: sessionId+i,
+        sessionId,
+        maquina: mach,
+        pico: i+1,
+        fila_superior: r.fila_superior||'',
+        fila_inferior: r.fila_inferior||'',
+        numero_completo: r.numero_completo,
+        fecha: new Date().toISOString(),
+        thumb: photos[i]?.thumb||null
+      });
+    }
+  }
+  // Save as a session group
+  const sessionRecord={
+    id: sessionId,
+    maquina: mach,
+    fecha: new Date().toISOString(),
+    entries
+  };
+  DB.unshift(sessionRecord);
+  localStorage.setItem(STATIONS[currentStation].dbKey, JSON.stringify(DB));
+  toast(`✅ ${entries.length} lecturas guardadas — Máquina ${mach}`,'good');
+  setTimeout(()=>{ newSession(); goTab('hist'); },900);
+}
+
+// ── HISTORY ──
+function filterHist(m){
+  m = parseInt(m);
+  histFilter=m;
+  document.querySelectorAll('.hf-btn').forEach(b=>{
+    const bm = parseInt(b.getAttribute('onclick').match(/\d+/)?.[0]||0);
+    b.classList.toggle('active', bm===m);
+  });
+  renderHist();
+}
+
+function renderHist(){
+  const list=document.getElementById('hist-list');
+  let data=histFilter===0?DB:DB.filter(s=>s.maquina===histFilter);
+  if(data.length===0){
+    list.innerHTML=`<div class="empty-state"><div class="ei">⛽</div>Sin sesiones guardadas aún.</div>`;
+    return;
+  }
+  list.innerHTML=data.map(s=>{
+    const cls=getMachines()[s.maquina]?.color||'m1';
+    const d=new Date(s.fecha);
+    const fecha=d.toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+    const hora=d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    const entries=s.entries||[];
+    return `
+      <div class="session-group" id="sg-${s.id}">
+        <div class="session-hdr" onclick="toggleSession(${s.id})">
+          <div class="session-hdr-left">
+            <div class="session-badge ${cls}">Máquina ${s.maquina}</div>
+            <div class="session-date">${fecha} · ${hora} · ${entries.length} pico${entries.length!==1?'s':''}</div>
+          </div>
+          <div class="session-chevron" id="chev-${s.id}">▼</div>
+        </div>
+        <div class="session-entries" id="se-${s.id}">
+          ${entries.map(e=>`
+            <div class="hentry" id="he-${e.id}">
+              ${e.thumb?`<img class="hentry-thumb" src="${e.thumb}" alt="">`:`<div class="hentry-thumb-ph">⛽</div>`}
+              <div class="hentry-info">
+                <div class="hentry-pico">Pico ${e.pico}</div>
+                <div class="hentry-num">${e.numero_completo}</div>
+              </div>
+              <div class="hentry-actions">
+                <button class="hentry-edit" onclick="requestEdit(${s.id},${e.id})">✏️</button>
+                <button class="hentry-del" onclick="delEntry(${s.id},${e.id})">✕</button>
+              </div>
+              <div class="inline-edit" id="ie-${e.id}">
+                <div class="ie-row">
+                  <input class="ie-inp" id="ie-sup-${e.id}" value="${e.fila_superior||''}" placeholder="Arriba" inputmode="decimal" oninput="iePreview(${e.id})">
+                  <span style="color:var(--muted);font-size:18px;padding-top:8px">+</span>
+                  <input class="ie-inp" id="ie-inf-${e.id}" value="${e.fila_inferior||''}" placeholder="Abajo" inputmode="decimal" oninput="iePreview(${e.id})">
+                  <button class="ie-save" onclick="doEdit(${s.id},${e.id})">OK</button>
+                </div>
+                <div class="ie-preview" id="ie-prev-${e.id}">${e.numero_completo}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleSession(id){
+  const entries=document.getElementById('se-'+id);
+  const chev=document.getElementById('chev-'+id);
+  const open=entries.classList.toggle('open');
+  chev.classList.toggle('open',open);
+}
+
+function iePreview(eid){
+  const sup=document.getElementById(`ie-sup-${eid}`)?.value||'';
+  const inf=document.getElementById(`ie-inf-${eid}`)?.value||'';
+  const el=document.getElementById(`ie-prev-${eid}`);
+  if(el) el.textContent=(sup+inf)||'—';
+}
+
+function doEdit(sid,eid){
+  const sup=document.getElementById(`ie-sup-${eid}`)?.value?.trim()||'';
+  const inf=document.getElementById(`ie-inf-${eid}`)?.value?.trim()||'';
+  const full=sup+inf;
+  if(!full){ toast('⚠️ Ingresá un número','bad'); return; }
+  const s=DB.find(x=>x.id===sid); if(!s) return;
+  const e=s.entries.find(x=>x.id===eid); if(!e) return;
+  e.fila_superior=sup; e.fila_inferior=inf; e.numero_completo=full; e.editado=true;
+  localStorage.setItem(STATIONS[currentStation].dbKey, JSON.stringify(DB));
+  toast('✅ Lectura actualizada','good');
+  renderHist();
+  setTimeout(()=>{ const sg=document.getElementById('sg-'+sid); if(sg){ toggleSession(sid); toggleSession(sid); } },100);
+}
+
+function delEntry(sid,eid){
+  const s=DB.find(x=>x.id===sid); if(!s) return;
+  s.entries=s.entries.filter(e=>e.id!==eid);
+  if(s.entries.length===0) DB=DB.filter(x=>x.id!==sid);
+  localStorage.setItem(STATIONS[currentStation].dbKey, JSON.stringify(DB));
+  renderHist();
+}
+
+// ── PIN ──
+function requestEdit(sid,eid){ pinBuf=''; pinTarget={sid,eid}; updatePinDots(); document.getElementById('pin-err').textContent=''; document.getElementById('pin-modal').classList.add('on'); }
+function pinKey(k){ if(pinBuf.length>=4) return; pinBuf+=k; updatePinDots(); if(pinBuf.length===4) setTimeout(checkPin,150); }
+function pinDel(){ pinBuf=pinBuf.slice(0,-1); updatePinDots(); document.getElementById('pin-err').textContent=''; }
+function updatePinDots(){ for(let i=0;i<4;i++) document.getElementById('pd'+i).className='pin-dot'+(i<pinBuf.length?' filled':''); }
+function checkPin(){
+  if(pinBuf===ADMIN_PIN){
+    closeOverlay('pin-modal');
+    const el=document.getElementById(`ie-${pinTarget.eid}`);
+    if(el){ el.classList.add('open'); toast('🔓 Acceso administrador','good'); }
+  } else {
+    for(let i=0;i<4;i++) document.getElementById('pd'+i).className='pin-dot error';
+    document.getElementById('pin-err').textContent='PIN incorrecto';
+    setTimeout(()=>{ pinBuf=''; updatePinDots(); document.getElementById('pin-err').textContent=''; },1200);
+  }
+}
+
+// ── MODALS ──
+function confirmClear(){ document.getElementById('clear-modal').classList.add('on'); }
+function closeOverlay(id){ document.getElementById(id).classList.remove('on'); }
+function doClear(){ DB=[]; localStorage.setItem(STATIONS[currentStation].dbKey, JSON.stringify(DB)); closeOverlay('clear-modal'); renderHist(); toast('🗑 Historial eliminado','good'); }
+
+// ── GOOGLE DRIVE ──
+const GOOG_SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+function buildCSV(entries){
+  entries.sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+  const header=['Fecha','Hora','Maquina','Pico','Lectura (Litros)'];
+  const lines=entries.map(e=>{
+    const d=new Date(e.fecha);
+    const fecha=d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const hora=d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    return [fecha,hora,`Maquina ${e.maquina}`,`Pico ${e.pico}`,e.numero_completo].join(';');
+  });
+  return '\uFEFF'+header.join(';')+'\n'+lines.join('\n');
+}
+
+function getByMachine(){
+  const byM={};
+  Object.keys(getMachines()).forEach(m=>{ byM[parseInt(m)]=[]; });
+  DB.forEach(s=>(s.entries||[]).forEach(e=>{
+    if(byM[e.maquina]) byM[e.maquina].push(e);
+  }));
+  return byM;
+}
+
+// ── EXPORT TO DRIVE ──
+async function exportExcel(){
+  if(DB.length===0){ toast('⚠️ No hay lecturas para exportar','bad'); return; }
+
+  // If no token, trigger Google sign-in
+  if(!gToken){
+    toast('🔑 Conectando con Google Drive...','info');
+    try{ await googleSignIn(); }
+    catch(e){ toast('⚠️ No se pudo conectar con Google','bad'); return; }
+  }
+  await uploadToDrive();
+}
+
+function googleSignIn(){
+  return new Promise((resolve,reject)=>{
+    if(!window.google){ reject(new Error('Google SDK no cargado')); return; }
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: GOOG_CLIENT_ID,
+      scope: GOOG_SCOPES,
+      callback:(resp)=>{
+        if(resp.error){ reject(new Error(resp.error)); return; }
+        gToken=resp.access_token;
+        resolve();
+      }
+    });
+    client.requestAccessToken();
+  });
+}
+
+async function uploadToDrive(){
+  const st = STATIONS[currentStation];
+  const folderId = st.folderId;
+  const machineIds = Object.keys(getMachines()).map(Number);
+  const byM = getByMachine();
+  const now=new Date();
+  const dateStr=now.toISOString().slice(0,10);
+  let uploaded=0;
+  const btn=document.querySelector('.export-btn');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Subiendo...'; }
+
+  for(const m of machineIds){
+    const rows=byM[m];
+    if(!rows||rows.length===0) continue;
+    const csv=buildCSV(rows);
+    const fileName=`${st.name.replace(' ','')}_Maquina${m}_${dateStr}.csv`;
+
+    try{
+      const searchRes=await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=name='${fileName}'+and+'${folderId}'+in+parents+and+trashed=false&fields=files(id,name)`,
+        {headers:{Authorization:`Bearer ${gToken}`}}
+      );
+      const searchData=await searchRes.json();
+      const existing=searchData.files?.[0];
+      const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+
+      if(existing){
+        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,{
+          method:'PATCH',
+          headers:{Authorization:`Bearer ${gToken}`,'Content-Type':'text/csv'},
+          body:blob
+        });
+      } else {
+        const meta=JSON.stringify({name:fileName,parents:[folderId]});
+        const form=new FormData();
+        form.append('metadata',new Blob([meta],{type:'application/json'}));
+        form.append('file',blob);
+        await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+          method:'POST',
+          headers:{Authorization:`Bearer ${gToken}`},
+          body:form
+        });
+      }
+      uploaded++;
+    } catch(err){
+      console.error('Drive upload error M'+m, err);
+    }
+  }
+
+  if(btn){ btn.disabled=false; btn.textContent='📥 Drive'; }
+
+  if(uploaded>0) toast(`✅ ${uploaded} archivo${uploaded>1?'s':''} guardado${uploaded>1?'s':''} en Drive`,'good');
+  else toast('⚠️ Error al subir a Drive','bad');
+}
+
+// ── TOAST ──
+function toast(msg,type='good'){
+  const t=document.getElementById('toast-el');
+  t.textContent=msg; t.className=`toast ${type}`; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+// showStep handled by detectStation() on init
+</script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+</body>
+</html>
