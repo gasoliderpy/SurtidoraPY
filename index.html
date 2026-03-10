@@ -351,7 +351,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 <body>
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v1.5</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v1.6</span></div>
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
     <div class="cfg-btn" onclick="toggleSetup()">⚙️</div>
@@ -927,6 +927,7 @@ async function analyzeAll(){
   // Separate photos with and without images
   const withPhoto=[], noPhoto=[];
   photos.forEach((p,i)=>{ if(p) withPhoto.push(i); else noPhoto.push(i); });
+  alert(`DEBUG: ${photos.length} slots, ${withPhoto.length} con foto, ${noPhoto.length} sin foto`);
 
   // Mark missing photos immediately
   noPhoto.forEach(i=>{
