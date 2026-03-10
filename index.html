@@ -394,7 +394,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.0</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.2</span></div>
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
     <div class="cfg-btn" onclick="toggleSetup()">⚙️</div>
@@ -952,6 +952,16 @@ function handleShot(e){
 }
 
 // ── ANALYZE ALL — single request per session (cost optimized) ──
+
+// Normaliza resultado: elimina ceros a la izquierda de fila_superior y reconstruye numero_completo
+function normalizeResult(r){
+  if(!r || r.error) return r;
+  const sup = r.fila_superior ? String(parseInt(r.fila_superior)||0) : '';
+  const inf = r.fila_inferior || '';
+  const full = sup && inf ? sup + inf : (sup || inf);
+  return {...r, fila_superior: sup, numero_completo: full};
+}
+
 async function analyzeAll(){
   if(!getKey()){ toast('⚠️ Configurá tu API Key primero','bad'); toggleSetup(); return; }
   if(!session) return;
@@ -1023,7 +1033,8 @@ async function analyzeAll(){
       `- El punto decimal en la fila inferior es un punto pequeño ENTRE dígitos\n` +
       `- Contá los dígitos cuidadosamente: si ves 6 dígitos con punto, como "961.805", no confundas con "96.1805"\n` +
       `- La fila superior NUNCA tiene punto decimal, son siempre dígitos enteros\n` +
-      `- Ignorá los ceros a la izquierda de la fila superior al concatenar NO, mantenelos: "000022"+"961.805"→"000022961.805"\n` +
+      `- Eliminá los ceros a la izquierda de la fila superior al armar numero_completo: "000022"+"961.805"→"22961.805"\n` +
+      `- El punto decimal divide la fila inferior en parte entera y decimal. Contá bien: "961.805" tiene 3 dígitos antes del punto y 3 después\n` +
       `Ejemplos correctos:\n` +
       `  "499" + "598.554" → "499598.554"\n` +
       `  "835" + "050.717" → "835050.717"\n` +
@@ -1072,8 +1083,8 @@ async function analyzeAll(){
       parsed.forEach(r=>{
         const i=r.pico-1;
         if(i>=0 && i<totalNozzles){
-          results[i]=r;
-          updateRCard(r.pico, mach, r, r.numero_completo?'ok':'error');
+          results[i]=normalizeResult(r);
+          updateRCard(r.pico, mach, results[i], results[i].numero_completo?'ok':'error');
         }
       });
       // Any in batch not returned → mark error
@@ -1193,7 +1204,7 @@ async function analyzeSingleNozzle(noz){
     if(!res.ok){ const e=await res.json(); throw new Error(e.error?.message||`Error ${res.status}`); }
     const data = await res.json();
     const txt = data.content?.map(b=>b.text||'').join('')||'';
-    const r = JSON.parse(txt.replace(/```json|```/g,'').trim());
+    const r = normalizeResult(JSON.parse(txt.replace(/```json|```/g,'').trim()));
     session.results[noz-1] = r;
     updateRCard(noz, mach, r, r.numero_completo?'ok':'error');
     const anyOk = session.results.some(r=>r&&!r.error&&r.numero_completo);
