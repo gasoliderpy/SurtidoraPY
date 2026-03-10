@@ -394,7 +394,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v2.7</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v2.8</span></div>
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
     <div class="cfg-btn" onclick="toggleSetup()">⚙️</div>
@@ -1013,6 +1013,12 @@ async function analyzeAll(){
       `- La fila superior son solo dígitos enteros (sin punto decimal)\n` +
       `- Concatenás directo: fila_superior + fila_inferior (ej: "835"+"050.717"→"835050.717")\n` +
       `- Si la imagen es borrosa intentá igual. Solo poné null si es imposible leer.\n` +
+      `ATENCIÓN CON DÍGITOS SIMILARES EN DISPLAYS 7 SEGMENTOS:\n` +
+      `- El 9 tiene el segmento inferior cerrado (como un 9 completo)\n` +
+      `- El 7 solo tiene segmento superior horizontal + diagonal hacia abajo (sin segmento inferior)\n` +
+      `- El 1 es solo dos segmentos verticales derechos (muy angosto)\n` +
+      `- El 7 NO tiene segmento inferior, el 9 SÍ tiene segmento inferior cerrado\n` +
+      `- Antes de confirmar un dígito, verificá dos veces si es 7 o 9\n` +
       `Ejemplos correctos:\n` +
       `  "499" + "598.554" → "499598.554"\n` +
       `  "835" + "050.717" → "835050.717"\n` +
@@ -1154,6 +1160,9 @@ async function analyzeSingleNozzle(noz){
       `Tenés 1 foto de display de surtidora de combustible.\n` +
       `El display tiene DOS FILAS: fila SUPERIOR (pequeña, arriba) + fila INFERIOR (grande, abajo) = número completo.\n` +
       `REGLAS: copiá exactamente los dígitos incluyendo ceros al inicio. Punto decimal en fila inferior.\n` +
+      `ATENCIÓN CON DÍGITOS SIMILARES EN DISPLAYS 7 SEGMENTOS:\n` +
+      `- El 9 tiene segmento inferior cerrado. El 7 NO tiene segmento inferior.\n` +
+      `- Verificá dos veces cada dígito que pueda ser 7 o 9 antes de responder.\n` +
       `Respondé SOLO con un objeto JSON sin texto extra:\n` +
       `{"pico":${noz},"fila_superior":"...","fila_inferior":"...","numero_completo":"..."}\n` +
       `Si no podés leer una fila, poné null.`
