@@ -351,7 +351,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 <body>
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v2.1</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v2.3</span></div>
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
     <div class="cfg-btn" onclick="toggleSetup()">⚙️</div>
@@ -900,18 +900,13 @@ function handleShot(e){
 
 // ── ANALYZE ALL — single request per session (cost optimized) ──
 async function analyzeAll(){
-  // DEBUG
-  const dbg = document.getElementById('api-error-box');
-  if(dbg){ dbg.style.display='block'; dbg.textContent='analyzeAll ejecutado. session='+(session?'OK':'NULL'); }
   if(!getKey()){ toast('⚠️ Configurá tu API Key primero','bad'); toggleSetup(); return; }
   if(!session) return;
 
   try{
 
   showStep('results');
-  if(dbg) dbg.textContent+=' | paso1';
   const {mach, totalNozzles, photos} = session;
-  if(dbg) dbg.textContent+=` | mach=${mach} noz=${totalNozzles} fotos=${photos.length}`;
   const cls = getMachines()[mach]?.color || 'm1';
 
   // Setup results UI
@@ -934,8 +929,6 @@ async function analyzeAll(){
   // Separate photos with and without images
   const withPhoto=[], noPhoto=[];
   photos.forEach((p,i)=>{ if(p) withPhoto.push(i); else noPhoto.push(i); });
-  const box = document.getElementById('api-error-box');
-  if(box){ box.style.display='block'; box.textContent+=` | slots:${photos.length} conFoto:${withPhoto.length} sinFoto:${noPhoto.length}`; }
 
   // Mark missing photos immediately
   noPhoto.forEach(i=>{
@@ -960,8 +953,17 @@ async function analyzeAll(){
     const content=[];
     content.push({type:'text', text:
       `Tenés ${batchIdx.length} fotos de displays de surtidora de combustible, una por pico.\n` +
-      `Cada display tiene DOS FILAS que se CONCATENAN: fila SUPERIOR (pequeña) + fila INFERIOR (grande) = número completo.\n` +
-      `Ejemplo: "499" + "598.554" → "499598.554"\n\n` +
+      `Cada display tiene DOS FILAS que se CONCATENAN: fila SUPERIOR (pequeña, arriba) + fila INFERIOR (grande, abajo) = número completo.\n` +
+      `REGLAS CRÍTICAS:\n` +
+      `- Copiá EXACTAMENTE los dígitos que ves, incluyendo ceros al inicio (ej: "050.717" NO "50.717")\n` +
+      `- El punto decimal está en la fila INFERIOR, copialo exactamente donde está\n` +
+      `- La fila superior son solo dígitos enteros (sin punto decimal)\n` +
+      `- Concatenás directo: fila_superior + fila_inferior (ej: "835"+"050.717"→"835050.717")\n` +
+      `- Si la imagen es borrosa intentá igual. Solo poné null si es imposible leer.\n` +
+      `Ejemplos correctos:\n` +
+      `  "499" + "598.554" → "499598.554"\n` +
+      `  "835" + "050.717" → "835050.717"\n` +
+      `  "2358" + "633.953" → "2358633.953"\n\n` +
       `Analizá cada imagen en orden y respondé SOLO con un array JSON, sin texto extra:\n` +
       `[\n` +
       batchIdx.map((idx,j)=>
