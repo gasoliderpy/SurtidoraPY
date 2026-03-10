@@ -917,7 +917,7 @@ async function analyzeAll(){
           'anthropic-dangerous-direct-browser-access':'true'
         },
         body:JSON.stringify({
-          model:'claude-sonnet-4-20250514',
+          model:'claude-sonnet-4-5',
           max_tokens: 150 * batchIdx.length, // ~150 tokens per pico
           messages:[{role:'user', content}]
         })
