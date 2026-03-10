@@ -394,7 +394,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v2.6</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v2.7</span></div>
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
     <div class="cfg-btn" onclick="toggleSetup()">⚙️</div>
@@ -875,6 +875,14 @@ function captureFromVideo(){
   if(!session) return;
   const noz = session.currentNoz;
   session.photos[noz-1] = { file:{type:'image/jpeg'}, thumb:dataUrl, dataUrl };
+
+  // Si estamos en modo retoma desde resultados, analizar solo ese pico
+  if(session.retakeMode){
+    session.retakeMode=null;
+    analyzeSingleNozzle(noz);
+    return;
+  }
+
   let next=null;
   for(let i=noz;i<session.totalNozzles;i++){
     if(!session.photos[i]){ next=i+1; break; }
@@ -1130,13 +1138,61 @@ function updateRCard(noz, mach, result, status){
   if(body) body.innerHTML=buildRCardBody(noz, mach, result, status);
 }
 
+async function analyzeSingleNozzle(noz){
+  if(!session) return;
+  const {mach, photos} = session;
+  const p = photos[noz-1];
+  if(!p) return;
+
+  showStep('results');
+  updateRCard(noz, mach, null, 'analyzing');
+
+  const mt = p.file?.type||'image/jpeg';
+  const b64 = p.dataUrl.split(',')[1];
+  const content = [
+    {type:'text', text:
+      `Tenés 1 foto de display de surtidora de combustible.\n` +
+      `El display tiene DOS FILAS: fila SUPERIOR (pequeña, arriba) + fila INFERIOR (grande, abajo) = número completo.\n` +
+      `REGLAS: copiá exactamente los dígitos incluyendo ceros al inicio. Punto decimal en fila inferior.\n` +
+      `Respondé SOLO con un objeto JSON sin texto extra:\n` +
+      `{"pico":${noz},"fila_superior":"...","fila_inferior":"...","numero_completo":"..."}\n` +
+      `Si no podés leer una fila, poné null.`
+    },
+    {type:'image', source:{type:'base64', media_type:mt, data:b64}}
+  ];
+
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':getKey(),
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({ model:'claude-sonnet-4-5', max_tokens:150, messages:[{role:'user', content}] })
+    });
+    if(!res.ok){ const e=await res.json(); throw new Error(e.error?.message||`Error ${res.status}`); }
+    const data = await res.json();
+    const txt = data.content?.map(b=>b.text||'').join('')||'';
+    const r = JSON.parse(txt.replace(/```json|```/g,'').trim());
+    session.results[noz-1] = r;
+    updateRCard(noz, mach, r, r.numero_completo?'ok':'error');
+    const anyOk = session.results.some(r=>r&&!r.error&&r.numero_completo);
+    document.getElementById('save-all-btn').disabled=!anyOk;
+  }catch(err){
+    session.results[noz-1]={error:err.message};
+    updateRCard(noz, mach, {error:err.message}, 'error');
+    toast('❌ Error: '+err.message,'bad');
+  }
+}
+
 function retakeFromResults(noz){
-  // Go back to shoot step, set current nozzle
   session.currentNoz=noz;
   session.photos[noz-1]=null;
+  session.retakeMode=noz; // flag: solo analizar este pico al terminar
   showStep('shoot');
   updateShootUI();
-  resetCamInput();
   toast(`Tomá de nuevo la foto del Pico ${noz}`,'info');
 }
 
