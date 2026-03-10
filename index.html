@@ -394,7 +394,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v2.8</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v2.9</span></div>
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
     <div class="cfg-btn" onclick="toggleSetup()">⚙️</div>
@@ -1227,15 +1227,21 @@ function saveAll(){
       });
     }
   }
-  // Save as a session group
+  // Save as a session group (sin thumbs para no exceder localStorage)
   const sessionRecord={
     id: sessionId,
     maquina: mach,
     fecha: new Date().toISOString(),
-    entries
+    entries: entries.map(e=>({...e, thumb:null}))
   };
   DB.unshift(sessionRecord);
-  localStorage.setItem(STATIONS[currentStation].dbKey, JSON.stringify(DB));
+  try{
+    localStorage.setItem(STATIONS[currentStation].dbKey, JSON.stringify(DB));
+  }catch(e){
+    // Si excede el límite, guardar sin historial previo
+    DB=[sessionRecord];
+    localStorage.setItem(STATIONS[currentStation].dbKey, JSON.stringify(DB));
+  }
   toast(`✅ ${entries.length} lecturas guardadas — Máquina ${mach}`,'good');
   setTimeout(()=>{ newSession(); goTab('hist'); buildMachineGrid(); },900);
 }
