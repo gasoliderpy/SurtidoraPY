@@ -351,7 +351,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 <body>
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v1.9</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v2.0</span></div>
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
     <div class="cfg-btn" onclick="toggleSetup()">⚙️</div>
@@ -906,8 +906,12 @@ async function analyzeAll(){
   if(!getKey()){ toast('⚠️ Configurá tu API Key primero','bad'); toggleSetup(); return; }
   if(!session) return;
 
+  try{
+
   showStep('results');
+  if(dbg) dbg.textContent+=' | paso1';
   const {mach, totalNozzles, photos} = session;
+  if(dbg) dbg.textContent+=` | mach=${mach} noz=${totalNozzles} fotos=${photos.length}`;
   const cls = MACHINES[mach].color;
 
   // Setup results UI
@@ -1026,6 +1030,11 @@ async function analyzeAll(){
   document.getElementById('results-sub').textContent=`${totalNozzles} picos`;
   const anyOk=results.some(r=>r&&!r.error&&r.numero_completo);
   document.getElementById('save-all-btn').disabled=!anyOk;
+
+  }catch(globalErr){
+    const dbg = document.getElementById('api-error-box');
+    if(dbg){ dbg.style.display='block'; dbg.textContent+=' | ERROR: '+globalErr.message; }
+  }
 }
 
 function buildRCard(noz, mach, thumb, result, status){
