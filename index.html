@@ -776,12 +776,26 @@ function updateShootUI(){
   }
 }
 
+// Recrea el input de cámara forzando siempre capture=environment (cámara trasera)
+function resetCamInput(){
+  const old = document.getElementById('cam-input');
+  if(!old) return;
+  const neu = document.createElement('input');
+  neu.type = 'file';
+  neu.accept = 'image/*';
+  neu.setAttribute('capture', 'environment');
+  neu.id = 'cam-input';
+  neu.style.cssText = 'position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%';
+  neu.onchange = handleShot;
+  old.replaceWith(neu);
+}
+
 function jumpToNozzle(noz){
   if(!session) return;
   session.currentNoz=noz;
   updateShootUI();
   // Reset file input
-  document.getElementById('cam-input').value='';
+  resetCamInput();
 }
 
 function retakeShoot(noz){
@@ -792,7 +806,7 @@ function retakeShoot(noz){
   document.getElementById('camera-zone').style.pointerEvents='';
   document.getElementById('analyze-btn').style.display='none';
   updateShootUI();
-  document.getElementById('cam-input').value='';
+  resetCamInput();
 }
 
 // ── HANDLE PHOTO ──
@@ -816,7 +830,7 @@ function handleShot(e){
     }
     if(next) session.currentNoz=next;
     updateShootUI();
-    document.getElementById('cam-input').value='';
+    resetCamInput();
   };
   reader.readAsDataURL(f);
 }
@@ -994,7 +1008,7 @@ function retakeFromResults(noz){
   session.photos[noz-1]=null;
   showStep('shoot');
   updateShootUI();
-  document.getElementById('cam-input').value='';
+  resetCamInput();
   toast(`Tomá de nuevo la foto del Pico ${noz}`,'info');
 }
 
