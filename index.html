@@ -1058,6 +1058,7 @@ async function analyzeAll(){
       `- La fila superior son solo dígitos enteros (sin punto decimal)\n` +
       `- Concatenás directo: fila_superior + fila_inferior (ej: "835"+"050.717"→"835050.717")\n` +
       `- Si la imagen es borrosa intentá igual. Solo poné null si es imposible leer.\n` +
+      `- El display LCD de 7 segmentos está en el centro de la imagen. Ignorá el fondo, reflejos y cualquier otro elemento visual. Enfocate únicamente en los segmentos iluminados del display.\n` +
       `ATENCIÓN CON DÍGITOS SIMILARES EN DISPLAYS 7 SEGMENTOS:\n` +
       `- El 9 tiene el segmento inferior cerrado (como un 9 completo)\n` +
       `- El 7 solo tiene segmento superior horizontal + diagonal hacia abajo (sin segmento inferior)\n` +
