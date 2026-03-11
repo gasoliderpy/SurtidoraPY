@@ -394,7 +394,11 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.7</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.8</span></div>
+  <div id="hdr-session" style="display:none;flex-direction:column;align-items:center;line-height:1.2;">
+    <span id="hdr-maquina" style="font-size:13px;font-weight:700;color:var(--acc);letter-spacing:0.5px;text-transform:none;font-family:'Barlow Condensed',sans-serif;">M1</span>
+    <span id="hdr-pico" style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none;font-family:'Barlow Condensed',sans-serif;">Pico 1</span>
+  </div>
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
     <div class="cfg-btn" onclick="toggleSetup()">⚙️</div>
@@ -763,6 +767,8 @@ function cancelSession(){
 }
 
 function newSession(){
+  const hdrSession = document.getElementById('hdr-session');
+  if(hdrSession) hdrSession.style.display='none';
   session=null;
   showStep('machine');
 }
@@ -782,6 +788,11 @@ function updateShootUI(){
   // Badge
   document.getElementById('shoot-badge').textContent = 'M'+mach;
   document.getElementById('shoot-badge').className = 'shoot-mach-badge '+color;
+  // Actualizar header
+  const hdrSession = document.getElementById('hdr-session');
+  hdrSession.style.display = 'flex';
+  document.getElementById('hdr-maquina').textContent = 'Máquina ' + mach;
+  document.getElementById('hdr-pico').textContent = 'Pico ' + currentNoz;
 
   // Progress
   const done = photos.filter(p=>p!==null).length;
