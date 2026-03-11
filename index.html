@@ -394,7 +394,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.3</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.4</span></div>
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
     <div class="cfg-btn" onclick="toggleSetup()">⚙️</div>
@@ -1410,7 +1410,8 @@ function buildCSV(entries){
     const d=new Date(e.fecha);
     const fecha=d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
     const hora=d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    return [fecha,hora,`Maquina ${e.maquina}`,`Pico ${e.pico}`,e.numero_completo].join(';');
+    const lectura=String(e.numero_completo).replace('.',',');
+    return [fecha,hora,`Maquina ${e.maquina}`,`Pico ${e.pico}`,lectura].join(';');
   });
   return '\uFEFF'+header.join(';')+'\n'+lines.join('\n');
 }
@@ -1456,19 +1457,19 @@ function googleSignIn(){
 async function uploadToDrive(){
   const st = STATIONS[currentStation];
   const folderId = st.folderId;
-  const machineIds = Object.keys(getMachines()).map(Number);
-  const byM = getByMachine();
   const now=new Date();
   const dateStr=now.toISOString().slice(0,10);
   let uploaded=0;
   const btn=document.querySelector('.export-btn');
   if(btn){ btn.disabled=true; btn.textContent='⏳ Subiendo...'; }
 
-  for(const m of machineIds){
-    const rows=byM[m];
-    if(!rows||rows.length===0) continue;
-    const csv=buildCSV(rows);
-    const fileName=`${st.name.replace(' ','')}_Maquina${m}_${dateStr}.csv`;
+  // Recopilar TODAS las entradas en un único CSV
+  const allEntries=[];
+  DB.forEach(s=>(s.entries||[]).forEach(e=>allEntries.push(e)));
+
+  if(allEntries.length>0){
+    const csv=buildCSV(allEntries);
+    const fileName=`${st.name.replace(/\s/g,'')}_${dateStr}.csv`;
 
     try{
       const searchRes=await fetch(
@@ -1498,14 +1499,14 @@ async function uploadToDrive(){
       }
       uploaded++;
     } catch(err){
-      console.error('Drive upload error M'+m, err);
+      console.error('Drive upload error', err);
     }
   }
 
   if(btn){ btn.disabled=false; btn.textContent='📥 Drive'; }
 
   if(uploaded>0){
-    toast(`✅ ${uploaded} archivo${uploaded>1?'s':''} guardado${uploaded>1?'s':''} en Drive`,'good');
+    toast('✅ Archivo guardado en Drive','good');
     // Limpiar historial del día y finalizar
     setTimeout(()=>{
       DB=[];
