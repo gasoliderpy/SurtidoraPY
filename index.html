@@ -394,7 +394,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.6</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.7</span></div>
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
     <div class="cfg-btn" onclick="toggleSetup()">⚙️</div>
@@ -620,7 +620,7 @@ let gToken = null;
 (function(){
   const k = getKey(); refreshKeyUI(k);
   if(!k){ document.getElementById('setup-drawer').classList.add('open'); setupOpen=true; }
-  detectStation();
+  // detectStation() se llama en checkPin() después de validar el PIN
 })();
 
 // ── STATION DETECTION ──
@@ -907,33 +907,32 @@ function captureFromVideo(){
   const noz = session.currentNoz;
   processImage(rawDataUrl).then(dataUrl=>{
     session.photos[noz-1] = { file:{type:'image/jpeg'}, thumb:dataUrl, dataUrl };
-
-  // Si estamos en modo retoma desde resultados, analizar solo ese pico
-  if(session.retakeMode){
-    session.retakeMode=null;
-    analyzeSingleNozzle(noz);
-    return;
-  }
-
-  let next=null;
-  for(let i=noz;i<session.totalNozzles;i++){
-    if(!session.photos[i]){ next=i+1; break; }
-  }
-  if(!next){
-    for(let i=0;i<noz-1;i++){
+    // Si estamos en modo retoma desde resultados, analizar solo ese pico
+    if(session.retakeMode){
+      session.retakeMode=null;
+      analyzeSingleNozzle(noz);
+      return;
+    }
+    let next=null;
+    for(let i=noz;i<session.totalNozzles;i++){
       if(!session.photos[i]){ next=i+1; break; }
     }
-  }
-  if(next){
-    session.currentNoz=next;
+    if(!next){
+      for(let i=0;i<noz-1;i++){
+        if(!session.photos[i]){ next=i+1; break; }
+      }
+    }
+    if(next){
+      session.currentNoz=next;
+      updateShootUI();
+    } else {
+      document.getElementById('camera-zone').style.opacity='0.4';
+      document.getElementById('camera-zone').style.pointerEvents='none';
+      document.getElementById('analyze-btn').style.display='block';
+      updateShootUI();
+    }
     updateShootUI();
-  } else {
-    document.getElementById('camera-zone').style.opacity='0.4';
-    document.getElementById('camera-zone').style.pointerEvents='none';
-    document.getElementById('analyze-btn').style.display='block';
-    updateShootUI();
-  }
-  updateShootUI();
+  });
 }
 
 function resetCamInput(){ /* no-op, replaced by getUserMedia */ }
@@ -971,15 +970,15 @@ function handleShot(e){
       for(let i=noz;i<session.totalNozzles;i++){
         if(!session.photos[i]){ next=i+1; break; }
       }
-    if(!next){
-      // Check from beginning
-      for(let i=0;i<noz-1;i++){
-        if(!session.photos[i]){ next=i+1; break; }
+      if(!next){
+        for(let i=0;i<noz-1;i++){
+          if(!session.photos[i]){ next=i+1; break; }
+        }
       }
-    }
-    if(next) session.currentNoz=next;
-    updateShootUI();
-    resetCamInput();
+      if(next) session.currentNoz=next;
+      updateShootUI();
+      resetCamInput();
+    });
   };
   reader.readAsDataURL(f);
 }
@@ -1656,6 +1655,7 @@ function updatePinDots(){
 function checkPin(){
   if(pinBuffer === PIN_CORRECT){
     document.getElementById('login-modal').classList.add('hidden');
+    detectStation();
   } else {
     document.getElementById('pin-error').textContent='PIN incorrecto';
     pinBuffer='';
