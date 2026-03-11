@@ -879,34 +879,9 @@ function closeCameraModal(){
 }
 
 
-// ── IMAGE PROCESSING (anti-sobreexposición) ──
+// ── IMAGE PROCESSING (desactivado) ──
 function processImage(dataUrl){
-  return new Promise(resolve=>{
-    const img=new Image();
-    img.onload=()=>{
-      const c=document.createElement('canvas');
-      c.width=img.width; c.height=img.height;
-      const ctx=c.getContext('2d');
-      ctx.drawImage(img,0,0);
-      const imageData=ctx.getImageData(0,0,c.width,c.height);
-      const data=imageData.data;
-      // Parámetros: reducir brillo, subir contraste, escala de grises
-      const brightness=-40;   // -255 a 255
-      const contrast=60;      // 0 a 255
-      const factor=(259*(contrast+255))/(255*(259-contrast));
-      for(let i=0;i<data.length;i+=4){
-        // Escala de grises
-        const gray=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
-        // Contraste + brillo
-        let v=factor*(gray-128)+128+brightness;
-        v=Math.max(0,Math.min(255,v));
-        data[i]=data[i+1]=data[i+2]=v;
-      }
-      ctx.putImageData(imageData,0,0);
-      resolve(c.toDataURL('image/jpeg',0.92));
-    };
-    img.src=dataUrl;
-  });
+  return Promise.resolve(dataUrl);
 }
 
 function captureFromVideo(){
