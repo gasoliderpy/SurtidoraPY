@@ -394,7 +394,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.4</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.5</span></div>
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
     <div class="cfg-btn" onclick="toggleSetup()">⚙️</div>
@@ -1257,7 +1257,8 @@ function saveAll(){
         fila_inferior: r.fila_inferior||'',
         numero_completo: r.numero_completo,
         fecha: new Date().toISOString(),
-        thumb: photos[i]?.thumb||null
+        thumb: photos[i]?.thumb||null,
+        photoDataUrl: photos[i]?.dataUrl||null
       });
     }
   }
@@ -1454,70 +1455,137 @@ function googleSignIn(){
   });
 }
 
+// ── DRIVE HELPERS ──
+
+async function getOrCreateFolder(name, parentId){
+  const q=`name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const res=await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`,
+    {headers:{Authorization:`Bearer ${gToken}`}});
+  const data=await res.json();
+  if(data.files&&data.files.length>0) return data.files[0].id;
+  const meta=JSON.stringify({name,mimeType:'application/vnd.google-apps.folder',parents:[parentId]});
+  const cr=await fetch('https://www.googleapis.com/drive/v3/files',{
+    method:'POST',
+    headers:{Authorization:`Bearer ${gToken}`,'Content-Type':'application/json'},
+    body:meta
+  });
+  const d=await cr.json();
+  return d.id;
+}
+
+async function uploadFileToDrive(blob, fileName, mimeType, folderId){
+  const q=`name='${fileName}' and '${folderId}' in parents and trashed=false`;
+  const sr=await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`,
+    {headers:{Authorization:`Bearer ${gToken}`}});
+  const sd=await sr.json();
+  const existing=sd.files?.[0];
+  if(existing){
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,{
+      method:'PATCH',
+      headers:{Authorization:`Bearer ${gToken}`,'Content-Type':mimeType},
+      body:blob
+    });
+    return existing.id;
+  }
+  const meta=JSON.stringify({name:fileName,parents:[folderId]});
+  const form=new FormData();
+  form.append('metadata',new Blob([meta],{type:'application/json'}));
+  form.append('file',blob);
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',
+    headers:{Authorization:`Bearer ${gToken}`},
+    body:form
+  });
+  const d=await r.json();
+  return d.id;
+}
+
+async function deleteOldPhotos(photosFolderId){
+  const q=`'${photosFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const res=await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`,
+    {headers:{Authorization:`Bearer ${gToken}`}});
+  const data=await res.json();
+  if(!data.files) return;
+  const cutoff=new Date();
+  cutoff.setDate(cutoff.getDate()-7);
+  for(const folder of data.files){
+    const folderDate=new Date(folder.name);
+    if(!isNaN(folderDate)&&folderDate<cutoff){
+      await fetch(`https://www.googleapis.com/drive/v3/files/${folder.id}`,{
+        method:'DELETE',
+        headers:{Authorization:`Bearer ${gToken}`}
+      });
+    }
+  }
+}
+
 async function uploadToDrive(){
   const st = STATIONS[currentStation];
   const folderId = st.folderId;
   const now=new Date();
   const dateStr=now.toISOString().slice(0,10);
-  let uploaded=0;
   const btn=document.querySelector('.export-btn');
   if(btn){ btn.disabled=true; btn.textContent='⏳ Subiendo...'; }
 
-  // Recopilar TODAS las entradas en un único CSV
-  const allEntries=[];
-  DB.forEach(s=>(s.entries||[]).forEach(e=>allEntries.push(e)));
+  let csvOk=false, photosOk=0, photosTotal=0;
 
-  if(allEntries.length>0){
-    const csv=buildCSV(allEntries);
-    const fileName=`${st.name.replace(/\s/g,'')}_${dateStr}.csv`;
+  try{
+    // 1. Obtener/crear subcarpeta Fotos/
+    const photosFolderId = await getOrCreateFolder('Fotos', folderId);
 
-    try{
-      const searchRes=await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name='${fileName}'+and+'${folderId}'+in+parents+and+trashed=false&fields=files(id,name)`,
-        {headers:{Authorization:`Bearer ${gToken}`}}
-      );
-      const searchData=await searchRes.json();
-      const existing=searchData.files?.[0];
-      const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    // 2. Borrar fotos de más de 7 días
+    await deleteOldPhotos(photosFolderId);
 
-      if(existing){
-        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,{
-          method:'PATCH',
-          headers:{Authorization:`Bearer ${gToken}`,'Content-Type':'text/csv'},
-          body:blob
-        });
-      } else {
-        const meta=JSON.stringify({name:fileName,parents:[folderId]});
-        const form=new FormData();
-        form.append('metadata',new Blob([meta],{type:'application/json'}));
-        form.append('file',blob);
-        await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
-          method:'POST',
-          headers:{Authorization:`Bearer ${gToken}`},
-          body:form
-        });
-      }
-      uploaded++;
-    } catch(err){
-      console.error('Drive upload error', err);
+    // 3. Obtener/crear subcarpeta Fotos/YYYY-MM-DD/
+    const dateFolderId = await getOrCreateFolder(dateStr, photosFolderId);
+
+    // 4. Recopilar todas las entradas
+    const allEntries=[];
+    DB.forEach(s=>(s.entries||[]).forEach(e=>allEntries.push(e)));
+
+    // 5. Subir cada foto
+    for(const entry of allEntries){
+      if(!entry.photoDataUrl) continue;
+      photosTotal++;
+      try{
+        const base64=entry.photoDataUrl.split(',')[1];
+        const byteChars=atob(base64);
+        const byteArr=new Uint8Array(byteChars.length);
+        for(let i=0;i<byteChars.length;i++) byteArr[i]=byteChars.charCodeAt(i);
+        const blob=new Blob([byteArr],{type:'image/jpeg'});
+        const ts=new Date(entry.fecha).toTimeString().slice(0,8).replace(/:/g,'-');
+        const photoName=`M${entry.maquina}_P${entry.pico}_${ts}.jpg`;
+        await uploadFileToDrive(blob, photoName, 'image/jpeg', dateFolderId);
+        photosOk++;
+      }catch(e){ console.error('Error foto M'+entry.maquina+' P'+entry.pico, e); }
     }
+
+    // 6. Subir CSV único
+    if(allEntries.length>0){
+      const csv=buildCSV(allEntries);
+      const fileName=`${st.name.replace(/\s/g,'')}_${dateStr}.csv`;
+      const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+      await uploadFileToDrive(blob, fileName, 'text/csv', folderId);
+      csvOk=true;
+    }
+
+  }catch(err){
+    console.error('Drive upload error', err);
   }
 
   if(btn){ btn.disabled=false; btn.textContent='📥 Drive'; }
 
-  if(uploaded>0){
-    toast('✅ Archivo guardado en Drive','good');
-    // Limpiar historial del día y finalizar
+  if(csvOk||photosOk>0){
+    toast(`✅ CSV + ${photosOk}/${photosTotal} fotos guardados en Drive`,'good');
     setTimeout(()=>{
       DB=[];
       localStorage.setItem(STATIONS[currentStation].dbKey, JSON.stringify(DB));
       renderHist();
       buildMachineGrid();
       toast('🗑 Historial del día limpiado. Nueva jornada lista.','good');
-    }, 1500);
+    }, 2000);
   } else toast('⚠️ Error al subir a Drive','bad');
 }
-
 // ── TOAST ──
 function toast(msg,type='good'){
   const t=document.getElementById('toast-el');
