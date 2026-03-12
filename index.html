@@ -165,8 +165,10 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
   overflow:hidden;display:flex;align-items:stretch;
 }
 .rcard-accent{width:4px;flex-shrink:0}
-.rcard-thumb{width:70px;flex-shrink:0;overflow:hidden}
-.rcard-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.rcard-thumb{width:70px;flex-shrink:0;overflow:hidden;cursor:pointer;position:relative}
+.rcard-thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .2s}
+.rcard-thumb:hover img{opacity:.75}
+.rcard-thumb-zoom{position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.6);border-radius:4px;font-size:12px;padding:1px 3px;pointer-events:none}
 .rcard-body{flex:1;padding:12px 12px 12px 14px;min-width:0}
 .rcard-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .rcard-pico-badge{
@@ -394,7 +396,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.9</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v4.3</span></div>
 
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
@@ -872,6 +874,16 @@ async function openCamera(){
   document.getElementById('cam-video').srcObject = camStream;
 }
 
+function openLightbox(src){
+  const lb = document.getElementById('photo-lightbox');
+  document.getElementById('lightbox-img').src = src;
+  lb.style.display = 'flex';
+}
+function closeLightbox(){
+  document.getElementById('photo-lightbox').style.display = 'none';
+  document.getElementById('lightbox-img').src = '';
+}
+
 function closeCameraModal(){
   if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
   document.getElementById('cam-modal').style.display='none';
@@ -1208,7 +1220,7 @@ function buildRCard(noz, mach, thumb, result, status){
   div.className='rcard'; div.id='rcard-'+noz;
   div.innerHTML=`
     <div class="rcard-accent" style="background:var(--${cls})"></div>
-    <div class="rcard-thumb">${thumb?`<img src="${thumb}" alt="">`:`<div style="width:70px;height:100%;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:24px">⛽</div>`}</div>
+    <div class="rcard-thumb" ${thumb?`onclick="openLightbox('${thumb}')" title="Ver foto completa"`:''}>${thumb?`<img src="${thumb}" alt=""><span class="rcard-thumb-zoom">🔍</span>`:`<div style="width:70px;height:100%;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:24px">⛽</div>`}</div>
     <div class="rcard-body" id="rcard-body-${noz}">
       ${buildRCardBody(noz, mach, result, status)}
     </div>
@@ -1738,5 +1750,10 @@ function isMachineCompletedToday(machId){
 
 </script>
 <script src="https://accounts.google.com/gsi/client" async></script>
+<!-- ── LIGHTBOX FOTO ── -->
+<div id="photo-lightbox" onclick="closeLightbox()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99990;align-items:center;justify-content:center;flex-direction:column;gap:14px;padding:20px;">
+  <img id="lightbox-img" src="" alt="" style="max-width:100%;max-height:82vh;border-radius:10px;object-fit:contain;box-shadow:0 0 40px rgba(0,0,0,.8)">
+  <div style="font-size:12px;color:rgba(255,255,255,.4)">Tocá en cualquier lugar para cerrar</div>
+</div>
 </body>
 </html>
