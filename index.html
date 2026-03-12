@@ -374,7 +374,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v4.5</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v4.6</span></div>
 
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
@@ -1024,11 +1024,6 @@ async function callClaudeOnce(contentArray, isBatch, maxTokens){
 }
 
 // ── DOBLE VERIFICACIÓN: compara dos lecturas de un mismo pico ──
-function lecturasCoincidenExactas(r1, r2){
-  return r1 && r2 && r1.numero_completo && r2.numero_completo &&
-         r1.numero_completo === r2.numero_completo;
-}
-
 // Construye el content array para uno o varios picos
 function buildContentArray(photos, batchIdx){
   const content = [];
@@ -1054,7 +1049,7 @@ async function analyzeAll(){
   const cls = getMachines()[mach]?.color || 'm1';
 
   document.getElementById('results-title').textContent = `Máquina ${mach}`;
-  document.getElementById('results-sub').textContent = `${totalNozzles} picos · verificando (2x)...`;
+  document.getElementById('results-sub').textContent = `${totalNozzles} picos · analizando...`;
   document.getElementById('results-badge').textContent = 'M'+mach;
   document.getElementById('results-badge').className = 'shoot-mach-badge '+cls;
   document.getElementById('save-all-btn').disabled=true;
@@ -1082,58 +1077,33 @@ async function analyzeAll(){
     return;
   }
 
-  // ── DOBLE VERIFICACIÓN por lotes ──
-  // Pasada 1 y Pasada 2 sobre la misma imagen — si coinciden, validado
+  // ── UNA SOLA LLAMADA por lote ──
   const BATCH=10;
-
-  async function runBatchPass(batchIdx){
-    const content = buildContentArray(photos, batchIdx);
-    const parsed = await callClaudeOnce(content, true, 250 * batchIdx.length);
-    const map = {};
-    (Array.isArray(parsed) ? parsed : [parsed]).forEach(r => {
-      if(r && r.pico != null) map[r.pico] = normalizeResult(r);
-    });
-    return map;
-  }
 
   for(let b=0; b<withPhoto.length; b+=BATCH){
     const batchIdx = withPhoto.slice(b, b+BATCH);
     try{
-      // Pasada 1
-      const pass1 = await runBatchPass(batchIdx);
-      // Pasada 2
-      const pass2 = await runBatchPass(batchIdx);
+      const content = buildContentArray(photos, batchIdx);
+      const parsed = await callClaudeOnce(content, true, 300 * batchIdx.length);
+      const map = {};
+      (Array.isArray(parsed) ? parsed : [parsed]).forEach(r => {
+        if(r && r.pico != null) map[r.pico] = normalizeResult(r);
+      });
 
       batchIdx.forEach(idx => {
         const noz = idx+1;
-        const r1 = pass1[noz];
-        const r2 = pass2[noz];
-
-        if(!r1 && !r2){
+        const r = map[noz];
+        if(!r){
           results[idx]={error:'Sin respuesta'};
           updateRCard(noz, mach, null, 'error');
           return;
         }
-
-        // Ambas lecturas coinciden exactamente
-        if(lecturasCoincidenExactas(r1, r2)){
-          const r = r1;
-          // Bloquear guardado si confianza baja
-          if(r.confianza === 'baja'){
-            results[idx] = {...r, _bloqueado: true};
-            updateRCard(noz, mach, results[idx], 'warn_baja');
-          } else {
-            results[idx] = r;
-            updateRCard(noz, mach, r, 'ok');
-          }
+        if(r.confianza === 'baja'){
+          results[idx] = {...r, _bloqueado: true};
+          updateRCard(noz, mach, results[idx], 'warn_baja');
         } else {
-          // Lecturas difieren → pedir foto nueva
-          results[idx] = {
-            error: `Lecturas inconsistentes: "${r1?.numero_completo||'?'}" vs "${r2?.numero_completo||'?'}"`,
-            _needsRetake: true,
-            _r1: r1, _r2: r2
-          };
-          updateRCard(noz, mach, results[idx], 'warn_diff');
+          results[idx] = r;
+          updateRCard(noz, mach, r, 'ok');
         }
       });
 
@@ -1176,16 +1146,15 @@ function buildRCard(noz, mach, thumb, result, status){
 function buildRCardBody(noz, mach, result, status){
   const cls=getMachines()[mach]?.color||'m1';
   const statusLabels={
-    analyzing:'<span class="spin spin-dark"></span>Verificando (2x)...',
+    analyzing:'<span class="spin spin-dark"></span>Analizando...',
     ok:'✅ Verificado',
     error:'❌ Error',
-    warn_diff:'⚠️ Lecturas distintas',
     warn_baja:'⚠️ Confianza baja'
   };
   let inner=`
     <div class="rcard-top">
       <div class="rcard-pico-badge" style="background:rgba(var(--${cls}-rgb),.15);color:var(--${cls});border:1px solid rgba(245,197,24,.2)">PICO ${noz}</div>
-      <div class="rcard-status ${status==='warn_diff'||status==='warn_baja'?'error':status}">${statusLabels[status]||''}</div>
+      <div class="rcard-status ${status==='warn_baja'?'error':status}">${statusLabels[status]||''}</div>
     </div>
   `;
   if(status==='ok'&&result){
@@ -1214,15 +1183,6 @@ function buildRCardBody(noz, mach, result, status){
       <div style="font-size:11px;color:var(--red);margin-top:4px;font-weight:700">🔴 Confianza baja — foto poco clara</div>
       <button class="rcard-retake" onclick="retakeFromResults(${noz})" style="margin-top:6px">↺ Mejorar foto</button>
     `;
-  } else if(status==='warn_diff'&&result){
-    inner+=`
-      <div style="font-size:11px;color:var(--acc);margin-bottom:6px;line-height:1.4">
-        Las 2 lecturas no coinciden:<br>
-        <b style="font-family:'IBM Plex Mono',monospace">${result._r1?.numero_completo||'?'}</b> vs 
-        <b style="font-family:'IBM Plex Mono',monospace">${result._r2?.numero_completo||'?'}</b>
-      </div>
-      <button class="rcard-retake" onclick="retakeFromResults(${noz})">↺ Tomar foto nueva</button>
-    `;
   } else if(status==='error'){
     inner+=`<div class="rcard-error-msg">${result?.error||'Error desconocido'}</div>`;
     inner+=`<button class="rcard-retake" onclick="retakeFromResults(${noz})">↺ Volver a tomar foto</button>`;
@@ -1247,32 +1207,20 @@ async function analyzeSingleNozzle(noz){
   const content = buildContentArray(photos, [noz-1]);
 
   try{
-    // Doble verificación — 2 llamadas independientes con la misma imagen
-    const [raw1, raw2] = await Promise.all([
-      callClaudeOnce(content, false, 250),
-      callClaudeOnce(content, false, 250)
-    ]);
-
-    const r1 = normalizeResult(Array.isArray(raw1) ? raw1[0] : raw1);
-    const r2 = normalizeResult(Array.isArray(raw2) ? raw2[0] : raw2);
+    const raw = await callClaudeOnce(content, false, 300);
+    const r = normalizeResult(Array.isArray(raw) ? raw[0] : raw);
 
     let finalResult;
 
-    if(lecturasCoincidenExactas(r1, r2)){
-      if(r1.confianza === 'baja'){
-        finalResult = {...r1, _bloqueado: true};
-        updateRCard(noz, mach, finalResult, 'warn_baja');
-      } else {
-        finalResult = r1;
-        updateRCard(noz, mach, r1, 'ok');
-      }
+    if(!r || !r.numero_completo){
+      finalResult = {error: 'Sin respuesta del modelo'};
+      updateRCard(noz, mach, finalResult, 'error');
+    } else if(r.confianza === 'baja'){
+      finalResult = {...r, _bloqueado: true};
+      updateRCard(noz, mach, finalResult, 'warn_baja');
     } else {
-      finalResult = {
-        error: `Lecturas inconsistentes: "${r1?.numero_completo||'?'}" vs "${r2?.numero_completo||'?'}"`,
-        _needsRetake: true,
-        _r1: r1, _r2: r2
-      };
-      updateRCard(noz, mach, finalResult, 'warn_diff');
+      finalResult = r;
+      updateRCard(noz, mach, r, 'ok');
     }
 
     session.results[noz-1] = finalResult;
