@@ -394,7 +394,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.8</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v3.9</span></div>
 
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
@@ -981,12 +981,9 @@ function normalizeResult(r){
   let inf = r.fila_inferior || '';
 
   // Asegurarse que la parte decimal tenga exactamente 3 dígitos
-  // Si el modelo puso el punto mal (ej: "96.1805" en vez de "961.805"),
-  // reconstruimos: quitamos el punto, tomamos los últimos 3 como decimales
   if(inf.includes('.')){
     const digits = inf.replace('.','');
     if(digits.length >= 4){
-      // Siempre: los últimos 3 dígitos son decimales
       const intPart = digits.slice(0, digits.length - 3);
       const decPart = digits.slice(-3);
       inf = intPart + '.' + decPart;
@@ -994,7 +991,99 @@ function normalizeResult(r){
   }
 
   const full = sup && inf ? sup + inf : (sup || inf);
-  return {...r, fila_superior: sup, fila_inferior: inf, numero_completo: full};
+  // Preservar confianza si viene del modelo
+  const confianza = r.confianza || 'alta';
+  return {...r, fila_superior: sup, fila_inferior: inf, numero_completo: full, confianza};
+}
+
+// ── PROMPT BUILDER ──
+function buildPromptText(nPicos, picoIndices){
+  const isBatch = nPicos > 1;
+  const intro = isBatch
+    ? `Tenés ${nPicos} fotos de displays de surtidora de combustible, una por pico.\n`
+    : `Tenés 1 foto de display de surtidora de combustible.\n`;
+
+  return intro +
+    `Cada display tiene DOS FILAS NUMÉRICAS:\n` +
+    `  - Fila SUPERIOR: dígitos enteros pequeños (sin punto decimal)\n` +
+    `  - Fila INFERIOR: dígitos grandes con punto decimal incluido\n` +
+    `  - Número completo = fila_superior (sin ceros a la izquierda) + fila_inferior exacta\n\n` +
+    `PROCESO OBLIGATORIO — para cada foto, antes de responder el JSON, hacé este análisis mental:\n` +
+    `  1. Identificá la fila superior: leé cada dígito de izquierda a derecha\n` +
+    `  2. Identificá la fila inferior: contá los dígitos ANTES y DESPUÉS del punto decimal\n` +
+    `  3. Verificá que la fila inferior tenga EXACTAMENTE 3 dígitos después del punto\n` +
+    `  4. Concatená: eliminá ceros a la izquierda de la superior, luego pegá la inferior\n\n` +
+    `REGLAS CRÍTICAS:\n` +
+    `- Copiá EXACTAMENTE los dígitos incluyendo ceros al inicio en fila_inferior (ej: "050.717" NO "50.717")\n` +
+    `- La fila inferior SIEMPRE tiene exactamente 3 decimales. Si ves "96.1805" es error — debe ser "961.805"\n` +
+    `- La fila superior NUNCA tiene punto decimal\n` +
+    `- Eliminá ceros a la izquierda SOLO al armar numero_completo: "000022"+"961.805"→"22961.805"\n` +
+    `- Si la imagen es borrosa intentá igual. Solo poné null si es imposible leer.\n\n` +
+    `DÍGITOS 7 SEGMENTOS — CONFUSIONES FRECUENTES:\n` +
+    `- 7 vs 9: el 7 NO tiene segmento inferior horizontal. El 9 SÍ lo tiene (forma cerrada abajo).\n` +
+    `- 1 vs 7: el 1 son solo dos segmentos verticales derechos (muy angosto, sin horizontal superior).\n` +
+    `- 6 vs 8: el 6 no tiene segmento superior derecho. El 8 tiene los 7 segmentos.\n` +
+    `- 0 vs 8: el 0 no tiene segmento central horizontal. El 8 sí.\n` +
+    `- Ante la duda entre 7 y 9, elegí el que tenga más sentido en contexto de un contador de combustible.\n\n` +
+    `CAMPO CONFIANZA:\n` +
+    `- "alta": imagen clara, todos los dígitos visibles sin duda\n` +
+    `- "media": algún dígito con leve ambigüedad, pero lectura probable\n` +
+    `- "baja": imagen borrosa o un dígito genuinamente incierto\n\n` +
+    `Ejemplos correctos:\n` +
+    `  "499" + "598.554" → "499598.554"\n` +
+    `  "835" + "050.717" → "835050.717"\n` +
+    `  "000022" + "961.805" → "22961.805"\n\n` +
+    (isBatch
+      ? `Analizá cada imagen en orden y respondé SOLO con un array JSON (sin texto extra, sin \`\`\`):\n[\n` +
+        picoIndices.map(idx => `  {"pico":${idx+1},"fila_superior":"...","fila_inferior":"...","numero_completo":"...","confianza":"alta|media|baja"}`).join(',\n') +
+        `\n]\n`
+      : `Respondé SOLO con un objeto JSON (sin texto extra, sin \`\`\`):\n` +
+        `{"pico":${picoIndices[0]+1},"fila_superior":"...","fila_inferior":"...","numero_completo":"...","confianza":"alta|media|baja"}\n`
+    ) +
+    `Usá punto para decimales. Si no podés leer una fila, poné null.`;
+}
+
+// ── LLAMADA ÚNICA A CLAUDE ──
+async function callClaudeOnce(contentArray, isBatch, maxTokens){
+  const res = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':getKey(),
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({
+      model:'claude-sonnet-4-5',
+      max_tokens: maxTokens,
+      messages:[{role:'user', content: contentArray}]
+    })
+  });
+  if(!res.ok){ const e=await res.json(); throw new Error(e.error?.message||`Error ${res.status}`); }
+  const data = await res.json();
+  const txt = data.content?.map(b=>b.text||'').join('')||'';
+  const clean = txt.replace(/```json|```/g,'').trim();
+  return JSON.parse(clean);
+}
+
+// ── DOBLE VERIFICACIÓN: compara dos lecturas de un mismo pico ──
+function lecturasCoincidenExactas(r1, r2){
+  return r1 && r2 && r1.numero_completo && r2.numero_completo &&
+         r1.numero_completo === r2.numero_completo;
+}
+
+// Construye el content array para uno o varios picos
+function buildContentArray(photos, batchIdx){
+  const content = [];
+  content.push({type:'text', text: buildPromptText(batchIdx.length, batchIdx)});
+  batchIdx.forEach(idx => {
+    const p = photos[idx];
+    const mt = p.file?.type||'image/jpeg';
+    const b64 = p.dataUrl.split(',')[1];
+    content.push({type:'text', text:`[Foto Pico ${idx+1}]`});
+    content.push({type:'image', source:{type:'base64', media_type:mt, data:b64}});
+  });
+  return content;
 }
 
 async function analyzeAll(){
@@ -1007,14 +1096,12 @@ async function analyzeAll(){
   const {mach, totalNozzles, photos} = session;
   const cls = getMachines()[mach]?.color || 'm1';
 
-  // Setup results UI
   document.getElementById('results-title').textContent = `Máquina ${mach}`;
-  document.getElementById('results-sub').textContent = `${totalNozzles} picos · analizando...`;
+  document.getElementById('results-sub').textContent = `${totalNozzles} picos · verificando (2x)...`;
   document.getElementById('results-badge').textContent = 'M'+mach;
   document.getElementById('results-badge').className = 'shoot-mach-badge '+cls;
   document.getElementById('save-all-btn').disabled=true;
 
-  // Build initial cards (all analyzing)
   const cards=document.getElementById('result-cards');
   cards.innerHTML='';
   for(let i=0;i<totalNozzles;i++){
@@ -1024,11 +1111,9 @@ async function analyzeAll(){
 
   const results = new Array(totalNozzles).fill(null);
 
-  // Separate photos with and without images
   const withPhoto=[], noPhoto=[];
   photos.forEach((p,i)=>{ if(p) withPhoto.push(i); else noPhoto.push(i); });
 
-  // Mark missing photos immediately
   noPhoto.forEach(i=>{
     results[i]={error:'Sin foto'};
     updateRCard(i+1, mach, null, 'error');
@@ -1040,92 +1125,59 @@ async function analyzeAll(){
     return;
   }
 
-  // Build single message with ALL photos + one instruction
-  // Max 17 images per request — Claude supports up to 20
-  // Split into batches of 10 if needed (safety margin)
+  // ── DOBLE VERIFICACIÓN por lotes ──
+  // Pasada 1 y Pasada 2 sobre la misma imagen — si coinciden, validado
   const BATCH=10;
+
+  async function runBatchPass(batchIdx){
+    const content = buildContentArray(photos, batchIdx);
+    const parsed = await callClaudeOnce(content, true, 250 * batchIdx.length);
+    const map = {};
+    (Array.isArray(parsed) ? parsed : [parsed]).forEach(r => {
+      if(r && r.pico != null) map[r.pico] = normalizeResult(r);
+    });
+    return map;
+  }
+
   for(let b=0; b<withPhoto.length; b+=BATCH){
-    const batchIdx=withPhoto.slice(b, b+BATCH);
-
-    // Build content array: interleave image + label for each pico
-    const content=[];
-    content.push({type:'text', text:
-      `Tenés ${batchIdx.length} fotos de displays de surtidora de combustible, una por pico.\n` +
-      `Cada display tiene DOS FILAS que se CONCATENAN: fila SUPERIOR (pequeña, arriba) + fila INFERIOR (grande, abajo) = número completo.\n` +
-      `REGLAS CRÍTICAS:\n` +
-      `- Copiá EXACTAMENTE los dígitos que ves, incluyendo ceros al inicio (ej: "050.717" NO "50.717")\n` +
-      `- El punto decimal está en la fila INFERIOR, copialo exactamente donde está\n` +
-      `- La fila superior son solo dígitos enteros (sin punto decimal)\n` +
-      `- Concatenás directo: fila_superior + fila_inferior (ej: "835"+"050.717"→"835050.717")\n` +
-      `- Si la imagen es borrosa intentá igual. Solo poné null si es imposible leer.\n` +
-      `- El display LCD de 7 segmentos está en el centro de la imagen. Ignorá el fondo, reflejos y cualquier otro elemento visual. Enfocate únicamente en los segmentos iluminados del display.\n` +
-      `ATENCIÓN CON DÍGITOS SIMILARES EN DISPLAYS 7 SEGMENTOS:\n` +
-      `- El 9 tiene el segmento inferior cerrado (como un 9 completo)\n` +
-      `- El 7 solo tiene segmento superior horizontal + diagonal hacia abajo (sin segmento inferior)\n` +
-      `- El 1 es solo dos segmentos verticales derechos (muy angosto)\n` +
-      `- El 7 NO tiene segmento inferior, el 9 SÍ tiene segmento inferior cerrado\n` +
-      `- Antes de confirmar un dígito, verificá dos veces si es 7 o 9\n` +
-      `ATENCIÓN CON EL PUNTO DECIMAL:\n` +
-      `- El punto decimal en la fila inferior es un punto pequeño ENTRE dígitos\n` +
-      `- Contá los dígitos cuidadosamente: si ves 6 dígitos con punto, como "961.805", no confundas con "96.1805"\n` +
-      `- La fila superior NUNCA tiene punto decimal, son siempre dígitos enteros\n` +
-      `- Eliminá los ceros a la izquierda de la fila superior al armar numero_completo: "000022"+"961.805"→"22961.805"\n` +
-      `- El punto decimal divide la fila inferior en parte entera y decimal. Contá bien: "961.805" tiene 3 dígitos antes del punto y 3 después\n` +
-      `Ejemplos correctos:\n` +
-      `  "499" + "598.554" → "499598.554"\n` +
-      `  "835" + "050.717" → "835050.717"\n` +
-      `  "2358" + "633.953" → "2358633.953"\n\n` +
-      `Analizá cada imagen en orden y respondé SOLO con un array JSON, sin texto extra:\n` +
-      `[\n` +
-      batchIdx.map((idx,j)=>
-        `  {"pico":${idx+1},"fila_superior":"...","fila_inferior":"...","numero_completo":"..."}`
-      ).join(',\n')+
-      `\n]\n` +
-      `Usá punto para decimales. Si no podés leer una fila, poné null.`
-    });
-
-    batchIdx.forEach((idx,j)=>{
-      const p=photos[idx];
-      const mt=p.file?.type||'image/jpeg';
-      const b64=p.dataUrl.split(',')[1];
-      content.push({type:'text', text:`[Foto Pico ${idx+1}]`});
-      content.push({type:'image', source:{type:'base64', media_type:mt, data:b64}});
-    });
-
+    const batchIdx = withPhoto.slice(b, b+BATCH);
     try{
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'x-api-key':getKey(),
-          'anthropic-version':'2023-06-01',
-          'anthropic-dangerous-direct-browser-access':'true'
-        },
-        body:JSON.stringify({
-          model:'claude-sonnet-4-5',
-          max_tokens: 150 * batchIdx.length, // ~150 tokens per pico
-          messages:[{role:'user', content}]
-        })
-      });
+      // Pasada 1
+      const pass1 = await runBatchPass(batchIdx);
+      // Pasada 2
+      const pass2 = await runBatchPass(batchIdx);
 
-      if(!res.ok){ const e=await res.json(); throw new Error(e.error?.message||`Error ${res.status}`); }
-      const data=await res.json();
-      const txt=data.content?.map(b=>b.text||'').join('')||'';
-      let parsed;
-      try{ parsed=JSON.parse(txt.replace(/```json|```/g,'').trim()); }
-      catch{ throw new Error('No se pudo interpretar la respuesta'); }
+      batchIdx.forEach(idx => {
+        const noz = idx+1;
+        const r1 = pass1[noz];
+        const r2 = pass2[noz];
 
-      // Map results back by pico number
-      parsed.forEach(r=>{
-        const i=r.pico-1;
-        if(i>=0 && i<totalNozzles){
-          results[i]=normalizeResult(r);
-          updateRCard(r.pico, mach, results[i], results[i].numero_completo?'ok':'error');
+        if(!r1 && !r2){
+          results[idx]={error:'Sin respuesta'};
+          updateRCard(noz, mach, null, 'error');
+          return;
         }
-      });
-      // Any in batch not returned → mark error
-      batchIdx.forEach(idx=>{
-        if(!results[idx]){ results[idx]={error:'Sin respuesta'}; updateRCard(idx+1,mach,null,'error'); }
+
+        // Ambas lecturas coinciden exactamente
+        if(lecturasCoincidenExactas(r1, r2)){
+          const r = r1;
+          // Bloquear guardado si confianza baja
+          if(r.confianza === 'baja'){
+            results[idx] = {...r, _bloqueado: true};
+            updateRCard(noz, mach, results[idx], 'warn_baja');
+          } else {
+            results[idx] = r;
+            updateRCard(noz, mach, r, 'ok');
+          }
+        } else {
+          // Lecturas difieren → pedir foto nueva
+          results[idx] = {
+            error: `Lecturas inconsistentes: "${r1?.numero_completo||'?'}" vs "${r2?.numero_completo||'?'}"`,
+            _needsRetake: true,
+            _r1: r1, _r2: r2
+          };
+          updateRCard(noz, mach, results[idx], 'warn_diff');
+        }
       });
 
     }catch(err){
@@ -1141,7 +1193,7 @@ async function analyzeAll(){
 
   session.results=results;
   document.getElementById('results-sub').textContent=`${totalNozzles} picos`;
-  const anyOk=results.some(r=>r&&!r.error&&r.numero_completo);
+  const anyOk=results.some(r=>r&&!r.error&&r.numero_completo&&!r._bloqueado&&!r._needsRetake);
   document.getElementById('save-all-btn').disabled=!anyOk;
 
   }catch(globalErr){
@@ -1166,14 +1218,22 @@ function buildRCard(noz, mach, thumb, result, status){
 
 function buildRCardBody(noz, mach, result, status){
   const cls=getMachines()[mach]?.color||'m1';
-  const statusLabels={analyzing:'<span class="spin spin-dark"></span>Analizando...',ok:'✅ Leído',error:'⚠️ Error'};
+  const statusLabels={
+    analyzing:'<span class="spin spin-dark"></span>Verificando (2x)...',
+    ok:'✅ Verificado',
+    error:'❌ Error',
+    warn_diff:'⚠️ Lecturas distintas',
+    warn_baja:'⚠️ Confianza baja'
+  };
   let inner=`
     <div class="rcard-top">
       <div class="rcard-pico-badge" style="background:rgba(var(--${cls}-rgb),.15);color:var(--${cls});border:1px solid rgba(245,197,24,.2)">PICO ${noz}</div>
-      <div class="rcard-status ${status}">${statusLabels[status]||''}</div>
+      <div class="rcard-status ${status==='warn_diff'||status==='warn_baja'?'error':status}">${statusLabels[status]||''}</div>
     </div>
   `;
   if(status==='ok'&&result){
+    const confColor = result.confianza==='media' ? 'var(--acc)' : 'var(--green)';
+    const confLabel = result.confianza==='media' ? '🟡 Confianza media' : '🟢 Alta confianza';
     inner+=`
       <div class="rcard-display">
         <div class="rcard-rows">
@@ -1182,7 +1242,29 @@ function buildRCardBody(noz, mach, result, status){
         </div>
       </div>
       <div class="rcard-full">${result.numero_completo||'—'}</div>
+      <div style="font-size:10px;color:${confColor};margin-top:4px;font-weight:700">${confLabel}</div>
       <button class="rcard-retake" onclick="retakeFromResults(${noz})" style="margin-top:6px">↺ Repetir foto</button>
+    `;
+  } else if(status==='warn_baja'&&result){
+    inner+=`
+      <div class="rcard-display">
+        <div class="rcard-rows">
+          <div class="rcard-row-item"><div class="rcard-row-lbl">ARRIBA</div><div class="rcard-row-val">${result.fila_superior||'—'}</div></div>
+          <div class="rcard-row-item" style="margin-left:8px"><div class="rcard-row-lbl">ABAJO</div><div class="rcard-row-val">${result.fila_inferior||'—'}</div></div>
+        </div>
+      </div>
+      <div class="rcard-full">${result.numero_completo||'—'}</div>
+      <div style="font-size:11px;color:var(--red);margin-top:4px;font-weight:700">🔴 Confianza baja — foto poco clara</div>
+      <button class="rcard-retake" onclick="retakeFromResults(${noz})" style="margin-top:6px">↺ Mejorar foto</button>
+    `;
+  } else if(status==='warn_diff'&&result){
+    inner+=`
+      <div style="font-size:11px;color:var(--acc);margin-bottom:6px;line-height:1.4">
+        Las 2 lecturas no coinciden:<br>
+        <b style="font-family:'IBM Plex Mono',monospace">${result._r1?.numero_completo||'?'}</b> vs 
+        <b style="font-family:'IBM Plex Mono',monospace">${result._r2?.numero_completo||'?'}</b>
+      </div>
+      <button class="rcard-retake" onclick="retakeFromResults(${noz})">↺ Tomar foto nueva</button>
     `;
   } else if(status==='error'){
     inner+=`<div class="rcard-error-msg">${result?.error||'Error desconocido'}</div>`;
@@ -1205,46 +1287,41 @@ async function analyzeSingleNozzle(noz){
   showStep('results');
   updateRCard(noz, mach, null, 'analyzing');
 
-  const mt = p.file?.type||'image/jpeg';
-  const b64 = p.dataUrl.split(',')[1];
-  const content = [
-    {type:'text', text:
-      `Tenés 1 foto de display de surtidora de combustible.\n` +
-      `El display tiene DOS FILAS: fila SUPERIOR (pequeña, arriba) + fila INFERIOR (grande, abajo) = número completo.\n` +
-      `REGLAS: copiá exactamente los dígitos incluyendo ceros al inicio. Punto decimal en fila inferior.\n` +
-      `ATENCIÓN CON DÍGITOS SIMILARES EN DISPLAYS 7 SEGMENTOS:\n` +
-      `- El 9 tiene segmento inferior cerrado. El 7 NO tiene segmento inferior.\n` +
-      `- Verificá dos veces cada dígito que pueda ser 7 o 9 antes de responder.\n` +
-      `ATENCIÓN CON EL PUNTO DECIMAL:\n` +
-      `- El punto decimal en la fila inferior es un punto pequeño ENTRE dígitos\n` +
-      `- Contá los dígitos cuidadosamente: si ves "961.805" no confundas con "96.1805"\n` +
-      `- La fila superior NUNCA tiene punto decimal\n` +
-      `Respondé SOLO con un objeto JSON sin texto extra:\n` +
-      `{"pico":${noz},"fila_superior":"...","fila_inferior":"...","numero_completo":"..."}\n` +
-      `Si no podés leer una fila, poné null.`
-    },
-    {type:'image', source:{type:'base64', media_type:mt, data:b64}}
-  ];
+  const content = buildContentArray(photos, [noz-1]);
 
   try{
-    const res = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':getKey(),
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body:JSON.stringify({ model:'claude-sonnet-4-5', max_tokens:150, messages:[{role:'user', content}] })
-    });
-    if(!res.ok){ const e=await res.json(); throw new Error(e.error?.message||`Error ${res.status}`); }
-    const data = await res.json();
-    const txt = data.content?.map(b=>b.text||'').join('')||'';
-    const r = normalizeResult(JSON.parse(txt.replace(/```json|```/g,'').trim()));
-    session.results[noz-1] = r;
-    updateRCard(noz, mach, r, r.numero_completo?'ok':'error');
-    const anyOk = session.results.some(r=>r&&!r.error&&r.numero_completo);
+    // Doble verificación — 2 llamadas independientes con la misma imagen
+    const [raw1, raw2] = await Promise.all([
+      callClaudeOnce(content, false, 250),
+      callClaudeOnce(content, false, 250)
+    ]);
+
+    const r1 = normalizeResult(Array.isArray(raw1) ? raw1[0] : raw1);
+    const r2 = normalizeResult(Array.isArray(raw2) ? raw2[0] : raw2);
+
+    let finalResult;
+
+    if(lecturasCoincidenExactas(r1, r2)){
+      if(r1.confianza === 'baja'){
+        finalResult = {...r1, _bloqueado: true};
+        updateRCard(noz, mach, finalResult, 'warn_baja');
+      } else {
+        finalResult = r1;
+        updateRCard(noz, mach, r1, 'ok');
+      }
+    } else {
+      finalResult = {
+        error: `Lecturas inconsistentes: "${r1?.numero_completo||'?'}" vs "${r2?.numero_completo||'?'}"`,
+        _needsRetake: true,
+        _r1: r1, _r2: r2
+      };
+      updateRCard(noz, mach, finalResult, 'warn_diff');
+    }
+
+    session.results[noz-1] = finalResult;
+    const anyOk = session.results.some(r=>r&&!r.error&&r.numero_completo&&!r._bloqueado&&!r._needsRetake);
     document.getElementById('save-all-btn').disabled=!anyOk;
+
   }catch(err){
     session.results[noz-1]={error:err.message};
     updateRCard(noz, mach, {error:err.message}, 'error');
@@ -1269,7 +1346,7 @@ function saveAll(){
   const entries=[];
   for(let i=0;i<totalNozzles;i++){
     const r=results[i];
-    if(r&&!r.error&&r.numero_completo){
+    if(r&&!r.error&&r.numero_completo&&!r._bloqueado&&!r._needsRetake){
       entries.push({
         id: sessionId+i,
         sessionId,
