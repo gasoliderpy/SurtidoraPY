@@ -366,7 +366,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
     <button class="pin-btn" onclick="pinPress('7')">7</button>
     <button class="pin-btn" onclick="pinPress('8')">8</button>
     <button class="pin-btn" onclick="pinPress('9')">9</button>
-    <button class="pin-btn del" onclick="adminPinDel()">⌫</button>
+    <button class="pin-btn del" onclick="pinDel()">⌫</button>
     <button class="pin-btn" onclick="pinPress('0')">0</button>
     <button class="pin-btn del" onclick="pinClear()">✕</button>
   </div>
@@ -374,7 +374,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v4.7</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v4.6</span></div>
 
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
@@ -461,7 +461,6 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
           <button onclick="closeCameraModal()" style="background:#333;color:#fff;border:none;padding:12px 24px;border-radius:10px;font-size:16px;cursor:pointer;">Cancelar</button>
           <button onclick="captureFromVideo()" style="background:var(--acc);color:#000;border:none;width:70px;height:70px;border-radius:50%;font-size:32px;cursor:pointer;">📸</button>
         </div>
-        <div style="color:rgba(255,255,255,.7);font-size:12px;margin-top:12px;text-align:center;max-width:320px;line-height:1.4">Alineá el display dentro del centro de la pantalla. Evitá reflejos y tratá de mantener el celular lo más recto posible.</div>
         <canvas id="cam-canvas" style="display:none;"></canvas>
       </div>
     </div>
@@ -524,17 +523,17 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
       <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
     </div>
     <div class="pin-pad">
-      <button class="pin-key" onclick="adminPinKey('1')">1</button>
-      <button class="pin-key" onclick="adminPinKey('2')">2</button>
-      <button class="pin-key" onclick="adminPinKey('3')">3</button>
-      <button class="pin-key" onclick="adminPinKey('4')">4</button>
-      <button class="pin-key" onclick="adminPinKey('5')">5</button>
-      <button class="pin-key" onclick="adminPinKey('6')">6</button>
-      <button class="pin-key" onclick="adminPinKey('7')">7</button>
-      <button class="pin-key" onclick="adminPinKey('8')">8</button>
-      <button class="pin-key" onclick="adminPinKey('9')">9</button>
+      <button class="pin-key" onclick="pinKey('1')">1</button>
+      <button class="pin-key" onclick="pinKey('2')">2</button>
+      <button class="pin-key" onclick="pinKey('3')">3</button>
+      <button class="pin-key" onclick="pinKey('4')">4</button>
+      <button class="pin-key" onclick="pinKey('5')">5</button>
+      <button class="pin-key" onclick="pinKey('6')">6</button>
+      <button class="pin-key" onclick="pinKey('7')">7</button>
+      <button class="pin-key" onclick="pinKey('8')">8</button>
+      <button class="pin-key" onclick="pinKey('9')">9</button>
       <button class="pin-key empty"></button>
-      <button class="pin-key" onclick="adminPinKey('0')">0</button>
+      <button class="pin-key" onclick="pinKey('0')">0</button>
       <button class="pin-key del" onclick="pinDel()">⌫</button>
     </div>
     <div class="pin-err" id="pin-err"></div>
@@ -843,56 +842,9 @@ function closeCameraModal(){
 }
 
 
-// ── IMAGE PROCESSING ──
-function clamp(value, min, max){ return Math.max(min, Math.min(max, value)); }
-
+// ── IMAGE PROCESSING (desactivado) ──
 function processImage(dataUrl){
-  return new Promise((resolve,reject)=>{
-    const img = new Image();
-    img.onload = () => {
-      try{
-        const sw = img.width;
-        const sh = img.height;
-
-        // Recorte guiado: zona central donde normalmente está el display
-        const crop = {
-          x: Math.round(sw * 0.16),
-          y: Math.round(sh * 0.18),
-          w: Math.round(sw * 0.68),
-          h: Math.round(sh * 0.56)
-        };
-
-        const c1 = document.createElement('canvas');
-        c1.width = crop.w;
-        c1.height = crop.h;
-        const g1 = c1.getContext('2d', { willReadFrequently:true });
-        g1.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
-
-        const imgData = g1.getImageData(0,0,crop.w,crop.h);
-        const d = imgData.data;
-        for(let i=0;i<d.length;i+=4){
-          const gray = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
-          const boosted = clamp((gray - 110) * 1.45 + 128, 0, 255);
-          d[i] = d[i+1] = d[i+2] = boosted;
-        }
-        g1.putImageData(imgData,0,0);
-
-        const out = document.createElement('canvas');
-        out.width = crop.w;
-        out.height = crop.h;
-        const go = out.getContext('2d');
-        go.filter = 'contrast(1.25) brightness(1.03)';
-        go.drawImage(c1,0,0);
-
-        resolve(out.toDataURL('image/jpeg', 0.9));
-      }catch(err){
-        console.warn('processImage fallback', err);
-        resolve(dataUrl);
-      }
-    };
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
+  return Promise.resolve(dataUrl);
 }
 
 function captureFromVideo(){
@@ -999,24 +951,6 @@ function normalizeResult(r){
   // Preservar confianza si viene del modelo
   const confianza = r.confianza || 'alta';
   return {...r, fila_superior: sup, fila_inferior: inf, numero_completo: full, confianza};
-}
-
-function validateReading(r){
-  if(!r || r.error) return {ok:false, reasons:['Sin lectura']};
-  const reasons = [];
-  const sup = String(r.fila_superior || '').trim();
-  const inf = String(r.fila_inferior || '').trim();
-  const full = String(r.numero_completo || '').trim();
-
-  if(!/^\d+$/.test(sup)) reasons.push('Fila superior inválida');
-  if(!/^\d+\.\d{3}$/.test(inf)) reasons.push('Fila inferior debe tener 3 decimales');
-  if(sup && inf && (sup + inf) !== full) reasons.push('Número completo no coincide');
-  if(full && !/^\d+\.\d{3}$/.test(full)) reasons.push('Formato final inválido');
-
-  const conf = r.confianza || 'alta';
-  if(conf === 'baja') reasons.push('Confianza baja');
-
-  return {ok: reasons.length === 0, reasons};
 }
 
 // ── PROMPT BUILDER ──
@@ -1161,16 +1095,12 @@ async function analyzeAll(){
         const r = map[noz];
         if(!r){
           results[idx]={error:'Sin respuesta'};
-          updateRCard(noz, mach, {error:'Sin respuesta'}, 'error');
+          updateRCard(noz, mach, null, 'error');
           return;
         }
-        const validation = validateReading(r);
-        if(!validation.ok){
-          results[idx] = {...r, _bloqueado: true, _validationMessage: validation.reasons.join(' · ')};
+        if(r.confianza === 'baja'){
+          results[idx] = {...r, _bloqueado: true};
           updateRCard(noz, mach, results[idx], 'warn_baja');
-        } else if(r.confianza === 'media'){
-          results[idx] = {...r, _validationMessage:'Lectura válida, pero conviene revisar visualmente'};
-          updateRCard(noz, mach, results[idx], 'warn_media');
         } else {
           results[idx] = r;
           updateRCard(noz, mach, r, 'ok');
@@ -1219,12 +1149,11 @@ function buildRCardBody(noz, mach, result, status){
     analyzing:'<span class="spin spin-dark"></span>Analizando...',
     ok:'✅ Verificado',
     error:'❌ Error',
-    warn_baja:'⚠️ Revisar lectura',
-    warn_media:'🟡 Revisar'
+    warn_baja:'⚠️ Confianza baja'
   };
   let inner=`
     <div class="rcard-top">
-      <div class="rcard-pico-badge" style="background:rgba(245,197,24,.12);color:var(--text);border:1px solid var(--border)">PICO ${noz}</div>
+      <div class="rcard-pico-badge" style="background:rgba(var(--${cls}-rgb),.15);color:var(--${cls});border:1px solid rgba(245,197,24,.2)">PICO ${noz}</div>
       <div class="rcard-status ${status==='warn_baja'?'error':status}">${statusLabels[status]||''}</div>
     </div>
   `;
@@ -1242,7 +1171,7 @@ function buildRCardBody(noz, mach, result, status){
       <div style="font-size:10px;color:${confColor};margin-top:4px;font-weight:700">${confLabel}</div>
       <button class="rcard-retake" onclick="retakeFromResults(${noz})" style="margin-top:6px">↺ Repetir foto</button>
     `;
-  } else if((status==='warn_baja' || status==='warn_media')&&result){
+  } else if(status==='warn_baja'&&result){
     inner+=`
       <div class="rcard-display">
         <div class="rcard-rows">
@@ -1251,7 +1180,7 @@ function buildRCardBody(noz, mach, result, status){
         </div>
       </div>
       <div class="rcard-full">${result.numero_completo||'—'}</div>
-      <div style="font-size:11px;color:var(--acc);margin-top:4px;font-weight:700">⚠️ ${result._validationMessage || 'Revisá la lectura antes de guardar'}</div>
+      <div style="font-size:11px;color:var(--red);margin-top:4px;font-weight:700">🔴 Confianza baja — foto poco clara</div>
       <button class="rcard-retake" onclick="retakeFromResults(${noz})" style="margin-top:6px">↺ Mejorar foto</button>
     `;
   } else if(status==='error'){
@@ -1286,18 +1215,12 @@ async function analyzeSingleNozzle(noz){
     if(!r || !r.numero_completo){
       finalResult = {error: 'Sin respuesta del modelo'};
       updateRCard(noz, mach, finalResult, 'error');
+    } else if(r.confianza === 'baja'){
+      finalResult = {...r, _bloqueado: true};
+      updateRCard(noz, mach, finalResult, 'warn_baja');
     } else {
-      const validation = validateReading(r);
-      if(!validation.ok){
-        finalResult = {...r, _bloqueado: true, _validationMessage: validation.reasons.join(' · ')};
-        updateRCard(noz, mach, finalResult, 'warn_baja');
-      } else if(r.confianza === 'media'){
-        finalResult = {...r, _validationMessage:'Lectura válida, pero conviene revisar visualmente'};
-        updateRCard(noz, mach, finalResult, 'warn_media');
-      } else {
-        finalResult = r;
-        updateRCard(noz, mach, r, 'ok');
-      }
+      finalResult = r;
+      updateRCard(noz, mach, r, 'ok');
     }
 
     session.results[noz-1] = finalResult;
@@ -1343,7 +1266,6 @@ function saveAll(){
       });
     }
   }
-  if(entries.length===0){ toast('⚠️ No hay lecturas válidas para guardar','bad'); return; }
   // Save as a session group (sin thumbs para no exceder localStorage)
   const sessionRecord={
     id: sessionId,
@@ -1461,12 +1383,12 @@ function delEntry(sid,eid){
   renderHist();
 }
 
-// ── PIN ADMIN ──
-function requestEdit(sid,eid){ pinBuf=''; pinTarget={sid,eid}; updateAdminPinDots(); document.getElementById('pin-err').textContent=''; document.getElementById('pin-modal').classList.add('on'); }
-function adminPinKey(k){ if(pinBuf.length>=4) return; pinBuf+=k; updateAdminPinDots(); if(pinBuf.length===4) setTimeout(checkAdminPin,150); }
-function adminPinDel(){ pinBuf=pinBuf.slice(0,-1); updateAdminPinDots(); document.getElementById('pin-err').textContent=''; }
-function updateAdminPinDots(){ for(let i=0;i<4;i++) document.getElementById('pd'+i).className='pin-dot'+(i<pinBuf.length?' filled':''); }
-function checkAdminPin(){
+// ── PIN ──
+function requestEdit(sid,eid){ pinBuf=''; pinTarget={sid,eid}; updatePinDots(); document.getElementById('pin-err').textContent=''; document.getElementById('pin-modal').classList.add('on'); }
+function pinKey(k){ if(pinBuf.length>=4) return; pinBuf+=k; updatePinDots(); if(pinBuf.length===4) setTimeout(checkPin,150); }
+function pinDel(){ pinBuf=pinBuf.slice(0,-1); updatePinDots(); document.getElementById('pin-err').textContent=''; }
+function updatePinDots(){ for(let i=0;i<4;i++) document.getElementById('pd'+i).className='pin-dot'+(i<pinBuf.length?' filled':''); }
+function checkPin(){
   if(pinBuf===ADMIN_PIN){
     closeOverlay('pin-modal');
     const el=document.getElementById(`ie-${pinTarget.eid}`);
@@ -1474,7 +1396,7 @@ function checkAdminPin(){
   } else {
     for(let i=0;i<4;i++) document.getElementById('pd'+i).className='pin-dot error';
     document.getElementById('pin-err').textContent='PIN incorrecto';
-    setTimeout(()=>{ pinBuf=''; updateAdminPinDots(); document.getElementById('pin-err').textContent=''; },1200);
+    setTimeout(()=>{ pinBuf=''; updatePinDots(); document.getElementById('pin-err').textContent=''; },1200);
   }
 }
 
@@ -1677,46 +1599,46 @@ function toast(msg,type='good'){
 
 // showStep handled by detectStation() on init
 
-// ── PIN LOGIN ──
+// ── PIN ──
 const PIN_CORRECT = '0101';
 let pinBuffer = '';
 
 function pinPress(d){
   if(pinBuffer.length >= 4) return;
   pinBuffer += d;
-  updateLoginPinDots();
-  if(pinBuffer.length === 4) setTimeout(checkLoginPin, 150);
+  updatePinDots();
+  if(pinBuffer.length === 4) setTimeout(checkPin, 150);
 }
 function pinDel(){
   pinBuffer = pinBuffer.slice(0,-1);
-  updateLoginPinDots();
+  updatePinDots();
   document.getElementById('pin-error').textContent='';
 }
 function pinClear(){
   pinBuffer='';
-  updateLoginPinDots();
+  updatePinDots();
   document.getElementById('pin-error').textContent='';
 }
-function updateLoginPinDots(){
+function updatePinDots(){
   for(let i=0;i<4;i++){
     document.getElementById('pd'+i).classList.toggle('filled', i < pinBuffer.length);
   }
 }
-function checkLoginPin(){
+function checkPin(){
   if(pinBuffer === PIN_CORRECT){
     document.getElementById('login-modal').classList.add('hidden');
     detectStation();
   } else {
     document.getElementById('pin-error').textContent='PIN incorrecto';
     pinBuffer='';
-    updateLoginPinDots();
+    updatePinDots();
   }
 }
 
 // ── CHECK MACHINE COMPLETED TODAY ──
 function isMachineCompletedToday(machId){
   const today = new Date().toISOString().slice(0,10);
-  return DB.some(s => s.maquina === machId && s.fecha && String(s.fecha).startsWith(today) && (s.entries||[]).length > 0);
+  return DB.some(s => s.maquina === machId && s.fecha && s.fecha.startsWith(today));
 }
 
 </script>
