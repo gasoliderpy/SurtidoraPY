@@ -374,7 +374,7 @@ main{position:relative;z-index:1;flex:1;padding:16px;max-width:500px;margin:0 au
 
 
 <header>
-  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v4.7</span></div>
+  <div class="logo">Surtidora<em>PY</em> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0;text-transform:none">v4.8</span></div>
 
   <div class="hdr-right">
     <div class="key-pill no" id="key-pill" onclick="toggleSetup()">Sin key</div>
@@ -877,9 +877,15 @@ function processImage(dataUrl){
 function captureFromVideo(){
   const video = document.getElementById('cam-video');
   const canvas = document.getElementById('cam-canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video,0,0);
+  // Recortar solo la región del visor (82% ancho × 28% alto, centrado)
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const cropW = Math.round(vw * 0.82);
+  const cropH = Math.round(vh * 0.28);
+  const cropX = Math.round((vw - cropW) / 2);
+  const cropY = Math.round((vh - cropH) / 2);
+  canvas.width = cropW;
+  canvas.height = cropH;
+  canvas.getContext('2d').drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
   const rawDataUrl = canvas.toDataURL('image/jpeg', 0.92);
   closeCameraModal();
   if(!session) return;
